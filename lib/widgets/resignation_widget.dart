@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/resignation_model.dart';
 import '../services/resignation_service.dart';
 
@@ -123,10 +122,6 @@ class _ResignationWidgetState extends State<ResignationWidget> {
     );
   }
 
-  String _formatDateTime(DateTime? date) {
-    if (date == null) return 'N/A';
-    return DateFormat('dd/MM/yyyy hh:mm a').format(date);
-  }
 
   @override
   Widget build(BuildContext context) {

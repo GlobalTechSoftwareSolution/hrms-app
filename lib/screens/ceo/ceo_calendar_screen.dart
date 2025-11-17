@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../layouts/dashboard_layout.dart';
-import '../../widgets/project_widget.dart';
+import '../../widgets/holiday_calendar.dart';
 
-class CeoProjectsScreen extends StatelessWidget {
-  const CeoProjectsScreen({super.key});
+class CeoCalendarScreen extends StatelessWidget {
+  const CeoCalendarScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return DashboardLayout(
       role: 'ceo',
-      child: const ProjectWidget(showCreateButton: true),
+      child: const HolidayCalendar(role: 'ceo'),
     );
   }
 }

@@ -88,3 +88,4 @@ class WorkedHours {
   @override
   String toString() => '${hrs}h ${mins}m ${secs}s';
 }
+  

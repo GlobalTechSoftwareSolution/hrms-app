@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ticket_model.dart';
 import '../config/api_config.dart';
-import 'firebase_notification_service.dart';
 
 class TicketService {
   static const String ticketsEndpoint = '/accounts/tickets/';

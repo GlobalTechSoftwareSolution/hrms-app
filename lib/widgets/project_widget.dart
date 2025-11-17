@@ -4,7 +4,8 @@ import '../models/project_model.dart';
 import '../services/project_service.dart';
 
 class ProjectWidget extends StatefulWidget {
-  const ProjectWidget({super.key});
+  final bool showCreateButton;
+  const ProjectWidget({super.key, this.showCreateButton = false});
 
   @override
   State<ProjectWidget> createState() => _ProjectWidgetState();
@@ -12,7 +13,7 @@ class ProjectWidget extends StatefulWidget {
 
 class _ProjectWidgetState extends State<ProjectWidget> {
   final ProjectService _projectService = ProjectService();
-  
+
   List<Project> projects = [];
   bool isLoading = false;
   String searchTerm = '';
@@ -27,11 +28,11 @@ class _ProjectWidgetState extends State<ProjectWidget> {
   Future<void> _fetchProjects() async {
     if (!mounted) return;
     setState(() => isLoading = true);
-    
+
     try {
       final fetchedProjects = await _projectService.fetchProjects();
       if (!mounted) return;
-      
+
       setState(() {
         projects = fetchedProjects;
         isLoading = false;
@@ -39,7 +40,7 @@ class _ProjectWidgetState extends State<ProjectWidget> {
       });
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         isLoading = false;
         error = e.toString();
@@ -49,10 +50,13 @@ class _ProjectWidgetState extends State<ProjectWidget> {
 
   List<Project> _getFilteredProjects() {
     if (searchTerm.isEmpty) return projects;
-    
+
     return projects.where((project) {
       return project.title.toLowerCase().contains(searchTerm.toLowerCase()) ||
-          (project.description?.toLowerCase().contains(searchTerm.toLowerCase()) ?? false);
+          (project.description?.toLowerCase().contains(
+                searchTerm.toLowerCase(),
+              ) ??
+              false);
     }).toList();
   }
 
@@ -115,7 +119,10 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: TextField(
                           decoration: InputDecoration(
                             hintText: 'Search projects...',
@@ -124,11 +131,13 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                             suffixIcon: searchTerm.isNotEmpty
                                 ? IconButton(
                                     icon: const Icon(Icons.clear),
-                                    onPressed: () => setState(() => searchTerm = ''),
+                                    onPressed: () =>
+                                        setState(() => searchTerm = ''),
                                   )
                                 : null,
                           ),
-                          onChanged: (value) => setState(() => searchTerm = value),
+                          onChanged: (value) =>
+                              setState(() => searchTerm = value),
                         ),
                       ),
                     ),
@@ -149,10 +158,14 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                         Expanded(
                           child: _buildStatCard(
                             'Active',
-                            projects.where((p) => 
-                              p.status?.toLowerCase() == 'active' || 
-                              p.status?.toLowerCase() == 'in progress'
-                            ).length.toString(),
+                            projects
+                                .where(
+                                  (p) =>
+                                      p.status?.toLowerCase() == 'active' ||
+                                      p.status?.toLowerCase() == 'in progress',
+                                )
+                                .length
+                                .toString(),
                             Icons.play_circle,
                             Colors.green,
                           ),
@@ -169,7 +182,10 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, color: Colors.red.shade700),
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.red.shade700,
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -197,6 +213,17 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                   ],
                 ),
               ),
+              // Create button (FAB) for allowed roles
+              if (widget.showCreateButton)
+                Positioned(
+                  right: 20,
+                  bottom: 20,
+                  child: FloatingActionButton.extended(
+                    onPressed: _showCreateProjectDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Create Project'),
+                  ),
+                ),
               // Loading indicator
               if (isLoading)
                 Positioned(
@@ -218,7 +245,12 @@ class _ProjectWidgetState extends State<ProjectWidget> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -249,10 +281,7 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                   ),
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -295,7 +324,10 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                   ),
                   if (project.status != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -316,10 +348,7 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                 const SizedBox(height: 8),
                 Text(
                   project.description!,
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -333,11 +362,18 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 14,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Start: ${_formatDate(project.startDate)}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -348,7 +384,10 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                       const SizedBox(width: 4),
                       Text(
                         'End: ${_formatDate(project.endDate)}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -359,7 +398,10 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                       const SizedBox(width: 4),
                       Text(
                         '${project.members.length} members',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -399,6 +441,115 @@ class _ProjectWidgetState extends State<ProjectWidget> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showCreateProjectDialog() async {
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+    final membersController = TextEditingController();
+    bool creating = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Create Project'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(labelText: 'Title'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: descController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: membersController,
+                      decoration: const InputDecoration(
+                        labelText: 'Members (comma separated emails)',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: creating
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: creating
+                      ? null
+                      : () async {
+                          final title = titleController.text.trim();
+                          if (title.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Title is required'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setState(() => creating = true);
+
+                          final members = membersController.text
+                              .split(',')
+                              .map((s) => s.trim())
+                              .where((s) => s.isNotEmpty)
+                              .toList();
+
+                          final payload = {
+                            'title': title,
+                            'description': descController.text.trim(),
+                            'members': members,
+                          };
+
+                          try {
+                            await _projectService.createProject(payload);
+                            if (!mounted) return;
+                            Navigator.of(context).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Project created')),
+                            );
+                            // Refresh list
+                            await _fetchProjects();
+                          } catch (e) {
+                            if (!mounted) return;
+                            setState(() => creating = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to create project: $e'),
+                              ),
+                            );
+                          }
+                        },
+                  child: creating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Create'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -467,10 +618,26 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                         mainAxisSpacing: 12,
                         childAspectRatio: 2,
                         children: [
-                          _buildInfoCard('Start Date', _formatDate(project.startDate), Icons.calendar_today),
-                          _buildInfoCard('End Date', _formatDate(project.endDate), Icons.event),
-                          _buildInfoCard('Status', project.status ?? 'N/A', Icons.info),
-                          _buildInfoCard('Members', '${project.members.length}', Icons.people),
+                          _buildInfoCard(
+                            'Start Date',
+                            _formatDate(project.startDate),
+                            Icons.calendar_today,
+                          ),
+                          _buildInfoCard(
+                            'End Date',
+                            _formatDate(project.endDate),
+                            Icons.event,
+                          ),
+                          _buildInfoCard(
+                            'Status',
+                            project.status ?? 'N/A',
+                            Icons.info,
+                          ),
+                          _buildInfoCard(
+                            'Members',
+                            '${project.members.length}',
+                            Icons.people,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -493,10 +660,16 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                           child: Column(
                             children: project.members.map((member) {
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.person, size: 16, color: Colors.grey.shade600),
+                                    Icon(
+                                      Icons.person,
+                                      size: 16,
+                                      color: Colors.grey.shade600,
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -513,7 +686,8 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                         const SizedBox(height: 20),
                       ],
                       // Additional Info
-                      if (project.additionalInfo != null && project.additionalInfo!.isNotEmpty) ...[
+                      if (project.additionalInfo != null &&
+                          project.additionalInfo!.isNotEmpty) ...[
                         const Text(
                           'Additional Information',
                           style: TextStyle(
@@ -530,9 +704,13 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: project.additionalInfo!.entries.map((entry) {
+                            children: project.additionalInfo!.entries.map((
+                              entry,
+                            ) {
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -561,7 +739,8 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                         ),
                       ],
                       // Timestamps
-                      if (project.createdAt != null || project.updatedAt != null) ...[
+                      if (project.createdAt != null ||
+                          project.updatedAt != null) ...[
                         const SizedBox(height: 20),
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -574,11 +753,18 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                               if (project.createdAt != null)
                                 Row(
                                   children: [
-                                    Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
                                     const SizedBox(width: 8),
                                     Text(
                                       'Created: ${_formatDateTime(project.createdAt)}',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade700,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -586,11 +772,18 @@ class _ProjectWidgetState extends State<ProjectWidget> {
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Icon(Icons.update, size: 14, color: Colors.grey.shade600),
+                                    Icon(
+                                      Icons.update,
+                                      size: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
                                     const SizedBox(width: 8),
                                     Text(
                                       'Updated: ${_formatDateTime(project.updatedAt)}',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade700,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -641,10 +834,7 @@ class _ProjectWidgetState extends State<ProjectWidget> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             overflow: TextOverflow.ellipsis,
           ),
         ],

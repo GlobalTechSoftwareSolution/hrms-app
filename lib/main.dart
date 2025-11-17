@@ -1,26 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 import 'providers/hrms_provider.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/splash_screen.dart';
-import 'services/firebase_notification_service.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  // Initialize Firebase Notifications
-  await FirebaseNotificationService.initialize();
-  
+void main() {
   runApp(const MyApp());
 }
 

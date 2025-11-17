@@ -1,5 +1,3 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
-
 class NotificationModel {
   final String id;
   final String title;
@@ -24,21 +22,6 @@ class NotificationModel {
     this.ticketId,
     this.actionUrl,
   });
-
-  factory NotificationModel.fromFirebaseMessage(RemoteMessage message) {
-    final data = message.data;
-    return NotificationModel(
-      id: message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      title: message.notification?.title ?? data['title'] ?? 'HRMS Notification',
-      body: message.notification?.body ?? data['body'] ?? '',
-      imageUrl: message.notification?.android?.imageUrl ?? data['image_url'],
-      data: data,
-      timestamp: DateTime.now(),
-      type: _getNotificationTypeFromData(data),
-      ticketId: data['ticket_id'],
-      actionUrl: data['action_url'],
-    );
-  }
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
@@ -99,27 +82,6 @@ class NotificationModel {
     );
   }
 
-  static NotificationType _getNotificationTypeFromData(Map<String, dynamic> data) {
-    final typeString = data['type']?.toString().toLowerCase();
-    switch (typeString) {
-      case 'ticket_assigned':
-        return NotificationType.ticketAssigned;
-      case 'ticket_updated':
-        return NotificationType.ticketUpdated;
-      case 'ticket_closed':
-        return NotificationType.ticketClosed;
-      case 'leave_approved':
-        return NotificationType.leaveApproved;
-      case 'leave_rejected':
-        return NotificationType.leaveRejected;
-      case 'attendance_reminder':
-        return NotificationType.attendanceReminder;
-      case 'announcement':
-        return NotificationType.announcement;
-      default:
-        return NotificationType.general;
-    }
-  }
 }
 
 enum NotificationType {

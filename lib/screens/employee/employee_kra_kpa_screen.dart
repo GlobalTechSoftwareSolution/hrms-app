@@ -10,60 +10,22 @@ class EmployeeKraKpaScreen extends StatefulWidget {
 class _EmployeeKraKpaScreenState extends State<EmployeeKraKpaScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Sample KPA data
-  final List<Map<String, dynamic>> _kpaData = [
-    {
-      'id': 1,
-      'area': 'Frontend Development',
-      'description': 'Building user interfaces and components',
-      'responsibilities': ['React components', 'UI/UX implementation', 'Performance optimization']
-    },
-    {
-      'id': 2,
-      'area': 'Backend Development',
-      'description': 'Server-side logic and APIs',
-      'responsibilities': ['REST APIs', 'Database design', 'Authentication']
-    },
-    {
-      'id': 3,
-      'area': 'Code Quality',
-      'description': 'Maintaining code standards',
-      'responsibilities': ['Code reviews', 'Testing', 'Documentation']
-    },
-  ];
-
-  // Sample KRA data
-  final List<Map<String, dynamic>> _kraData = [
-    {
-      'id': 1,
-      'kpa': 'Development',
-      'result': 'Complete 3 new modules this quarter',
-      'target': '3',
-      'status': '✅ Done',
-      'statusColor': Colors.green,
-    },
-    {
-      'id': 2,
-      'kpa': 'Code Quality',
-      'result': 'Maintain <2% bug rate after release',
-      'target': '<2%',
-      'status': '🟡 In Progress',
-      'statusColor': Colors.orange,
-    },
-    {
-      'id': 3,
-      'kpa': 'Delivery',
-      'result': 'Complete 95% sprint tasks on time',
-      'target': '95%',
-      'status': '🟢 On Track',
-      'statusColor': Colors.green,
-    },
-  ];
+  List<Map<String, dynamic>> _kpaData = [];
+  List<Map<String, dynamic>> _kraData = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    // TODO: Load KRA/KPA data from API
+    await Future.delayed(const Duration(milliseconds: 500)); // Simulate API call
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -184,6 +146,10 @@ class _EmployeeKraKpaScreenState extends State<EmployeeKraKpaScreen> with Single
   }
 
   Widget _buildKPAView() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -198,22 +164,41 @@ class _EmployeeKraKpaScreenState extends State<EmployeeKraKpaScreen> with Single
             ),
           ),
           const SizedBox(height: 16),
-          // KPA Cards
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 2 : 1,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: MediaQuery.of(context).size.width > 600 ? 1.5 : 1.3,
-            ),
-            itemCount: _kpaData.length,
-            itemBuilder: (context, index) {
-              final kpa = _kpaData[index];
-              return _buildKPACard(kpa);
-            },
-          ),
+          // KPA Cards or Empty State
+          _kpaData.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 60),
+                      Icon(Icons.list_alt, size: 64, color: Colors.grey.shade400),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No KPA data available',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 60),
+                    ],
+                  ),
+                )
+              : GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: MediaQuery.of(context).size.width > 600 ? 2 : 1,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: MediaQuery.of(context).size.width > 600 ? 1.5 : 1.3,
+                  ),
+                  itemCount: _kpaData.length,
+                  itemBuilder: (context, index) {
+                    final kpa = _kpaData[index];
+                    return _buildKPACard(kpa);
+                  },
+                ),
           const SizedBox(height: 24),
           // Add New KPA Button
           SizedBox(
@@ -343,6 +328,10 @@ class _EmployeeKraKpaScreenState extends State<EmployeeKraKpaScreen> with Single
   }
 
   Widget _buildKRAView() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -357,6 +346,27 @@ class _EmployeeKraKpaScreenState extends State<EmployeeKraKpaScreen> with Single
             ),
           ),
           const SizedBox(height: 16),
+          // KRA Table or Empty State
+          _kraData.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 60),
+                      Icon(Icons.check_circle_outline, size: 64, color: Colors.grey.shade400),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No KRA data available',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 60),
+                    ],
+                  ),
+                )
+              :
           // KRA Table
           Container(
             decoration: BoxDecoration(

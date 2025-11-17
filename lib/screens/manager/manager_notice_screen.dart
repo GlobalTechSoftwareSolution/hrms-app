@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
+import '../../layouts/dashboard_layout.dart';
 
-class AdminNoticeScreen extends StatefulWidget {
-  const AdminNoticeScreen({super.key});
+class ManagerNoticeScreen extends StatefulWidget {
+  const ManagerNoticeScreen({super.key});
 
   @override
-  State<AdminNoticeScreen> createState() => _AdminNoticeScreenState();
+  State<ManagerNoticeScreen> createState() => _ManagerNoticeScreenState();
 }
 
-class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
+class _ManagerNoticeScreenState extends State<ManagerNoticeScreen> {
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _notices = [];
   List<Map<String, dynamic>> _filteredNotices = [];
@@ -30,34 +31,50 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       _userEmail = prefs.getString('user_email') ?? '';
-      debugPrint('👤 Admin user email: $_userEmail');
+      debugPrint('👤 Manager user email: $_userEmail');
 
       final response = await _apiService.get('/accounts/list_notices/');
-      debugPrint('📥 Admin notices response: $response');
+      debugPrint('📥 Manager notices response: $response');
 
-      // Admin sees ALL notices without filtering by notice_to
+      // Manager sees notices where notice_to is null (for everyone) or matches their email
       final allNotices = (response['data']?['notices'] ?? response['notices'] ?? []) as List;
-      debugPrint('📋 Total notices for admin: ${allNotices.length}');
+      debugPrint('📋 Total notices: ${allNotices.length}');
 
-      final noticesList = allNotices.map<Map<String, dynamic>>((n) => {
-        'id': n['id'],
-        'title': n['title'],
-        'message': n['message'],
-        'email': n['email'],
-        'notice_by': n['notice_by'],
-        'notice_to': n['notice_to'],
-        'posted_date': n['posted_date'],
-        'important': n['important'],
-        'attachment': n['attachment'],
-        'category': n['category'] ?? 'General',
-      }).toList();
+      final noticesList = allNotices
+          .where((n) {
+            final noticeTo = n['notice_to'];
+            // Show if notice_to is null (for everyone)
+            if (noticeTo == null || noticeTo.toString().isEmpty) {
+              return true;
+            }
+            // Show if notice_to matches manager's email
+            if (_userEmail.isNotEmpty &&
+                noticeTo.toString().toLowerCase() == _userEmail.toLowerCase()) {
+              return true;
+            }
+            return false;
+          })
+          .map<Map<String, dynamic>>((n) => {
+                'id': n['id'],
+                'title': n['title'],
+                'message': n['message'],
+                'email': n['email'],
+                'notice_by': n['notice_by'],
+                'notice_to': n['notice_to'],
+                'posted_date': n['posted_date'],
+                'important': n['important'],
+                'attachment': n['attachment'],
+                'category': n['category'] ?? 'General',
+                'is_read': n['is_read'] ?? false,
+              })
+          .toList();
 
       setState(() {
         _notices = noticesList;
         _applyFilters();
       });
     } catch (e) {
-      debugPrint('❌ Error fetching admin notices: $e');
+      debugPrint('❌ Error fetching manager notices: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -72,14 +89,15 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
           (n['title'] ?? '').toString().toLowerCase().contains(q) ||
           (n['message'] ?? '').toString().toLowerCase().contains(q) ||
           (n['email'] ?? '').toString().toLowerCase().contains(q) ||
-          (n['notice_by'] ?? '').toString().toLowerCase().contains(q) ||
-          (n['notice_to'] ?? '').toString().toLowerCase().contains(q)).toList();
+          (n['notice_by'] ?? '').toString().toLowerCase().contains(q)).toList();
     }
 
     if (_filter == 'important') {
       result = result.where((n) => n['important'] == true).toList();
     } else if (_filter == 'with-attachments') {
       result = result.where((n) => n['attachment'] != null).toList();
+    } else if (_filter == 'unread') {
+      result = result.where((n) => !(n['is_read'] ?? false)).toList();
     }
 
     setState(() => _filteredNotices = result);
@@ -96,55 +114,43 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return DashboardLayout(role: 'manager', child: _buildNoticeContent());
+  }
+
+  Widget _buildNoticeContent() {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenHeight < 600;
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Notices'),
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchNotices,
-          ),
-        ],
-      ),
-      backgroundColor: Colors.grey.shade100,
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Colors.blue),
-                    SizedBox(height: 16),
-                    Text('Loading all notices...'),
-                  ],
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _fetchNotices,
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(screenWidth > 600 ? 16 : 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(isSmallScreen),
-                      SizedBox(height: isSmallScreen ? 12 : 16),
-                      _buildStatsCards(),
-                      SizedBox(height: isSmallScreen ? 12 : 16),
-                      _buildSearchAndFilters(),
-                      SizedBox(height: isSmallScreen ? 12 : 16),
-                      _buildNoticesList(),
-                    ],
-                  ),
-                ),
+
+    return _isLoading
+        ? const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: Colors.blue),
+                SizedBox(height: 16),
+                Text('Loading notices...'),
+              ],
+            ),
+          )
+        : RefreshIndicator(
+            onRefresh: _fetchNotices,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(screenWidth > 600 ? 16 : 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(isSmallScreen),
+                  SizedBox(height: isSmallScreen ? 12 : 16),
+                  _buildStatsCards(),
+                  SizedBox(height: isSmallScreen ? 12 : 16),
+                  _buildSearchAndFilters(),
+                  SizedBox(height: isSmallScreen ? 12 : 16),
+                  _buildNoticesList(),
+                ],
               ),
-      ),
-    );
+            ),
+          );
   }
 
   Widget _buildHeader(bool isSmallScreen) {
@@ -170,8 +176,8 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
               borderRadius: BorderRadius.circular(isSmallScreen ? 4 : 6),
             ),
             child: Icon(
-              Icons.notifications_active, 
-              size: isSmallScreen ? 16 : 20, 
+              Icons.notifications_active,
+              size: isSmallScreen ? 16 : 20,
               color: Colors.blue.shade600,
             ),
           ),
@@ -181,7 +187,7 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'All Notices',
+                  'Notices',
                   style: TextStyle(
                     fontSize: isSmallScreen ? 16 : 18,
                     fontWeight: FontWeight.bold,
@@ -189,14 +195,19 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                   ),
                 ),
                 Text(
-                  'Admin view - all system notices',
+                  'Stay updated with important announcements',
                   style: TextStyle(
-                    color: Colors.grey, 
+                    color: Colors.grey,
                     fontSize: isSmallScreen ? 10 : 12,
                   ),
                 ),
               ],
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchNotices,
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -204,6 +215,11 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
   }
 
   Widget _buildStatsCards() {
+    final unreadCount = _notices.where((n) => !(n['is_read'] ?? false)).length;
+    final importantCount = _notices.where((n) => n['important'] == true).length;
+    final withAttachmentsCount =
+        _notices.where((n) => n['attachment'] != null).length;
+
     return Row(
       children: [
         Expanded(
@@ -216,8 +232,16 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: _buildStatCard(
+            'Unread',
+            unreadCount.toString(),
+            Colors.orange,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
             'Important',
-            _notices.where((n) => n['important'] == true).length.toString(),
+            importantCount.toString(),
             Colors.red,
           ),
         ),
@@ -225,7 +249,7 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
         Expanded(
           child: _buildStatCard(
             'With Files',
-            _notices.where((n) => n['attachment'] != null).length.toString(),
+            withAttachmentsCount.toString(),
             Colors.green,
           ),
         ),
@@ -283,7 +307,7 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
         children: [
           TextField(
             decoration: const InputDecoration(
-              hintText: 'Search notices by title, message, sender, recipient...',
+              hintText: 'Search notices by title, message, sender...',
               prefixIcon: Icon(Icons.search),
               border: OutlineInputBorder(),
             ),
@@ -302,6 +326,13 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                 _buildFilterChip('All', _filter == 'all', () {
                   setState(() {
                     _filter = 'all';
+                    _applyFilters();
+                  });
+                }),
+                const SizedBox(width: 8),
+                _buildFilterChip('Unread', _filter == 'unread', () {
+                  setState(() {
+                    _filter = 'unread';
                     _applyFilters();
                   });
                 }),
@@ -366,7 +397,8 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.notifications_off, size: 64, color: Colors.grey.shade400),
+              Icon(Icons.notifications_off,
+                  size: 64, color: Colors.grey.shade400),
               const SizedBox(height: 16),
               const Text(
                 'No notices found',
@@ -397,7 +429,8 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
 
   Widget _buildNoticeCard(Map<String, dynamic> notice) {
     final isImportant = notice['important'] == true;
-    
+    final isRead = notice['is_read'] ?? false;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -422,7 +455,8 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
               children: [
                 if (isImportant)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.red,
                       borderRadius: BorderRadius.circular(12),
@@ -449,6 +483,25 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                 ),
                 if (notice['attachment'] != null)
                   const Icon(Icons.attach_file, size: 16, color: Colors.grey),
+                if (!isRead) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'NEW',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -475,11 +528,12 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                         style: const TextStyle(fontSize: 12, color: Colors.grey),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        'To: ${notice['notice_to'] ?? 'All Users'}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      if (notice['notice_to'] != null)
+                        Text(
+                          'To: ${notice['notice_to']}',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
                 ),
@@ -496,6 +550,15 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
   }
 
   void _showNoticeDialog(Map<String, dynamic> notice) {
+    // Mark as read
+    final index = _notices.indexWhere((n) => n['id'] == notice['id']);
+    if (index != -1 && !(_notices[index]['is_read'] ?? false)) {
+      setState(() {
+        _notices[index]['is_read'] = true;
+        _applyFilters();
+      });
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -540,7 +603,8 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                       if (notice['important'] == true)
                         Container(
                           margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(4),
@@ -548,7 +612,8 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.priority_high, color: Colors.white, size: 14),
+                              Icon(Icons.priority_high,
+                                  color: Colors.white, size: 14),
                               SizedBox(width: 4),
                               Text(
                                 'Important Notice',
@@ -575,10 +640,11 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                               'From: ${notice['notice_by'] ?? notice['email'] ?? 'Unknown'}',
                               style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
-                            Text(
-                              'To: ${notice['notice_to'] ?? 'All Users'}',
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
+                            if (notice['notice_to'] != null)
+                              Text(
+                                'To: ${notice['notice_to']}',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
                             Text(
                               'Posted: ${_formatDate(notice['posted_date'])}',
                               style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -629,3 +695,4 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
     );
   }
 }
+

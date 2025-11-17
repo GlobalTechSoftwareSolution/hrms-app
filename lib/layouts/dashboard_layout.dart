@@ -11,7 +11,37 @@ import '../screens/admin/admin_attendance_screen.dart';
 import '../screens/admin/admin_calendar_screen.dart';
 import '../screens/ceo/ceo_projects_screen.dart';
 import '../screens/manager/manager_projects_screen.dart';
+import '../screens/manager/manager_tasks_screen.dart';
+import '../screens/manager/manager_reports_screen.dart';
+import '../screens/manager/manager_team_screen.dart';
+import '../screens/manager/manager_leave_approval_screen.dart';
+import '../screens/manager/manager_attendance_screen.dart';
+import '../screens/manager/manager_monthly_reports_screen.dart';
+import '../screens/manager/manager_notice_screen.dart';
+import '../screens/manager/manager_calendar_screen.dart';
+import '../screens/manager/manager_resigned_employees_screen.dart';
+import '../screens/manager/manager_profile_screen.dart';
 import '../screens/hr/hr_projects_screen.dart';
+import '../screens/hr/hr_calendar_screen.dart';
+import '../screens/hr/hr_employees_screen.dart';
+import '../screens/hr/hr_leaves_screen.dart';
+import '../screens/hr/hr_attendance_screen.dart';
+import '../screens/hr/hr_monthly_reports_screen.dart';
+import '../screens/hr/hr_payroll_screen.dart';
+import '../screens/hr/hr_onboarding_screen.dart';
+import '../screens/admin/admin_notice_screen.dart';
+import '../screens/admin/admin_profile_screen.dart';
+import '../screens/ceo/ceo_dashboard_screen.dart';
+import '../screens/ceo/ceo_reports_screen.dart';
+import '../screens/ceo/ceo_employees_screen.dart';
+import '../screens/ceo/ceo_attendance_screen.dart';
+import '../screens/ceo/monthly_reports_screen.dart';
+import '../screens/ceo/ceo_finance_screen.dart';
+import '../screens/ceo/ceo_notice_screen.dart';
+import '../screens/ceo/ceo_calendar_screen.dart';
+import '../screens/ceo/ceo_profile_screen.dart';
+import '../screens/employee/employee_calendar_screen.dart';
+import '../screens/employee/employee_profile_screen.dart';
 
 class DashboardLayout extends StatefulWidget {
   final Widget child;
@@ -176,14 +206,104 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       case '/admin/calendar':
         screen = const AdminCalendarScreen();
         break;
+      case '/admin/notice':
+        screen = const AdminNoticeScreen();
+        break;
+      case '/admin/profile':
+        screen = const AdminProfileScreen();
+        break;
+      case '/ceo/dashboard':
+        screen = const CeoDashboardScreen();
+        break;
+      case '/ceo/reports':
+        screen = const CeoReportsScreen();
+        break;
+      case '/ceo/employees':
+        screen = const CeoEmployeesScreen();
+        break;
+      case '/ceo/attendance':
+        screen = const CeoAttendanceScreen();
+        break;
+      case '/ceo/monthly_report':
+        screen = const MonthlyReportsScreen();
+        break;
+      case '/ceo/finance':
+        screen = const CeoFinanceScreen();
+        break;
+      case '/ceo/notice':
+        screen = const CeoNoticeScreen();
+        break;
+      case '/ceo/calendar':
+        screen = const CeoCalendarScreen();
+        break;
+      case '/ceo/profile':
+        screen = const CeoProfileScreen();
+        break;
       case '/ceo/projects':
         screen = const CeoProjectsScreen();
         break;
       case '/manager/projects':
         screen = const ManagerProjectsScreen();
         break;
+      case '/manager/tasks':
+        screen = const ManagerTasksScreen();
+        break;
+      case '/manager/reports':
+        screen = const ManagerReportsScreen();
+        break;
+      case '/manager/team':
+        screen = const ManagerTeamScreen();
+        break;
+      case '/manager/leaveapprovals':
+        screen = const ManagerLeaveApprovalScreen();
+        break;
+      case '/manager/attendance':
+        screen = const ManagerAttendanceScreen();
+        break;
+      case '/manager/monthly_report':
+        screen = const ManagerMonthlyReportsScreen();
+        break;
+      case '/manager/notice':
+        screen = const ManagerNoticeScreen();
+        break;
+      case '/manager/calendar':
+        screen = const ManagerCalendarScreen();
+        break;
+      case '/manager/resigned_employee':
+        screen = const ManagerResignedEmployeesScreen();
+        break;
+      case '/manager/profile':
+        screen = const ManagerProfileScreen();
+        break;
       case '/hr/projects':
         screen = const HrProjectsScreen();
+        break;
+      case '/hr/calendar':
+        screen = const HrCalendarScreen();
+        break;
+      case '/hr/employee':
+        screen = const HrEmployeesScreen();
+        break;
+      case '/hr/leaves':
+        screen = const HrLeavesScreen();
+        break;
+      case '/hr/attendance':
+        screen = const HrAttendanceScreen();
+        break;
+      case '/hr/monthly_report':
+        screen = const HrMonthlyReportsScreen();
+        break;
+      case '/hr/payroll':
+        screen = const HrPayrollScreen();
+        break;
+      case '/hr/onboarding':
+        screen = const HrOnboardingScreen();
+        break;
+      case '/employee/calendar':
+        screen = const EmployeeCalendarScreen();
+        break;
+      case '/employee/profile':
+        screen = const EmployeeProfileScreen();
         break;
       default:
         // Show a snackbar for unimplemented routes
@@ -287,8 +407,28 @@ class _DashboardLayoutState extends State<DashboardLayout> {
             padding: const EdgeInsets.only(right: 16.0),
             child: GestureDetector(
               onTap: () {
-                // Navigate to profile
-                // TODO: Implement profile navigation
+                // Navigate to profile based on role
+                switch (widget.role) {
+                  case 'manager':
+                    _navigateToPage('/manager/profile');
+                    break;
+                  case 'ceo':
+                    _navigateToPage('/ceo/profile');
+                    break;
+                  case 'admin':
+                    _navigateToPage('/admin/profile');
+                    break;
+                  case 'employee':
+                    _navigateToPage('/employee/profile');
+                    break;
+                  default:
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile coming soon'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                }
               },
               child: profilePictureWidget,
             ),

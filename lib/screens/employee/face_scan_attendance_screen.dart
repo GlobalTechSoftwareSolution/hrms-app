@@ -182,7 +182,7 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
     try {
       setState(() => _isLoading = true);
 
-      final image = await _cameraController!.takePicture();
+      await _cameraController!.takePicture();
 
       // Fetch employee profile picture
       final apiService = ApiService();

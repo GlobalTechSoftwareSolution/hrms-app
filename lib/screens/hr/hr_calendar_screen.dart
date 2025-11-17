@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import '../../layouts/dashboard_layout.dart';
 import '../../widgets/holiday_calendar.dart';
 
-class EmployeeHolidayCalendarScreen extends StatelessWidget {
-  const EmployeeHolidayCalendarScreen({super.key});
+class HrCalendarScreen extends StatelessWidget {
+  const HrCalendarScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return DashboardLayout(
-      role: 'employee',
-      child: const HolidayCalendar(role: 'employee'),
+      role: 'hr',
+      child: const HolidayCalendar(role: 'hr'),
     );
   }
 }
+

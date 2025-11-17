@@ -137,7 +137,7 @@ class ApiService {
   // Logout
   Future<Map<String, dynamic>> logout() async {
     try {
-      final response = await http.post(
+      await http.post(
         Uri.parse('$baseUrl/auth/logout/'),
         headers: await _getHeaders(),
       );
@@ -511,7 +511,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl$endpoint'),
-        headers: await _getHeaders(includeAuth: false),
+        headers: await _getHeaders(),
         body: jsonEncode(data),
       );
       

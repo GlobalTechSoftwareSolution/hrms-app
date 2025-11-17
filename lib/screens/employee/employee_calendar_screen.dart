@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../../layouts/dashboard_layout.dart';
 import '../../widgets/holiday_calendar.dart';
 
-class EmployeeHolidayCalendarScreen extends StatelessWidget {
-  const EmployeeHolidayCalendarScreen({super.key});
+class EmployeeCalendarScreen extends StatelessWidget {
+  const EmployeeCalendarScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -13,3 +13,4 @@ class EmployeeHolidayCalendarScreen extends StatelessWidget {
     );
   }
 }
+

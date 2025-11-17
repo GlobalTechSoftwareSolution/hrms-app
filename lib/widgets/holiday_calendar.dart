@@ -320,63 +320,85 @@ class _HolidayCalendarState extends State<HolidayCalendar> {
   }
 
   Widget _buildCalendarHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 360;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: IconButton(
-                onPressed: _goToPreviousMonth,
-                icon: const Icon(Icons.chevron_left, size: 16),
-                padding: const EdgeInsets.all(6),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                color: Colors.grey.shade600,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: IconButton(
+                    onPressed: _goToPreviousMonth,
+                    icon: const Icon(Icons.chevron_left, size: 16),
+                    padding: const EdgeInsets.all(6),
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * 0.5,
+                  ),
+                  child: Text(
+                    '${_monthNames[_selectedMonth]} $_selectedYear',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: IconButton(
+                    onPressed: _goToNextMonth,
+                    icon: const Icon(Icons.chevron_right, size: 16),
+                    padding: const EdgeInsets.all(6),
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Text(
-              '${_monthNames[_selectedMonth]} $_selectedYear',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+            const SizedBox(width: 8),
+            if (!isNarrow)
+              ElevatedButton(
+                onPressed: _goToToday,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: const Text('Today'),
               ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: IconButton(
-                onPressed: _goToNextMonth,
-                icon: const Icon(Icons.chevron_right, size: 16),
-                padding: const EdgeInsets.all(6),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                color: Colors.grey.shade600,
-              ),
-            ),
           ],
-        ),
-        ElevatedButton(
-          onPressed: _goToToday,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade600,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          child: const Text('Today'),
-        ),
-      ],
+        );
+      },
     );
   }
 

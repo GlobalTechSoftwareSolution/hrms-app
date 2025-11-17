@@ -29,6 +29,11 @@ import '../screens/hr/hr_attendance_screen.dart';
 import '../screens/hr/hr_monthly_reports_screen.dart';
 import '../screens/hr/hr_payroll_screen.dart';
 import '../screens/hr/hr_onboarding_screen.dart';
+import '../screens/hr/hr_offboarding_screen.dart';
+import '../screens/hr/hr_notice_screen.dart';
+import '../screens/hr/hr_documents_screen.dart';
+import '../screens/hr/hr_careers_screen.dart';
+import '../screens/hr/hr_profile_screen.dart';
 import '../screens/admin/admin_notice_screen.dart';
 import '../screens/admin/admin_profile_screen.dart';
 import '../screens/ceo/ceo_dashboard_screen.dart';
@@ -298,6 +303,21 @@ class _DashboardLayoutState extends State<DashboardLayout> {
         break;
       case '/hr/onboarding':
         screen = const HrOnboardingScreen();
+        break;
+      case '/hr/offboarding':
+        screen = const HrOffboardingScreen();
+        break;
+      case '/hr/notice':
+        screen = const HrNoticeScreen();
+        break;
+      case '/hr/documents':
+        screen = const HrDocumentsScreen();
+        break;
+      case '/hr/careers':
+        screen = const HrCareersScreen();
+        break;
+      case '/hr/profile':
+        screen = const HrProfileScreen();
         break;
       case '/employee/calendar':
         screen = const EmployeeCalendarScreen();

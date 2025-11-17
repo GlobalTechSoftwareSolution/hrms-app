@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../layouts/dashboard_layout.dart';
+
 import '../../services/api_service.dart';
+import '../../layouts/dashboard_layout.dart';
+import '../../utils/file_viewer.dart';
 
 class ManagerTeamScreen extends StatefulWidget {
   const ManagerTeamScreen({super.key});
@@ -200,24 +201,7 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
   }
 
   Future<void> _openDocument(String url) async {
-    try {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open document')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
+    await openRemoteFile(context, url, title: 'Document');
   }
 
   Widget _buildDocumentViewer(String url) {

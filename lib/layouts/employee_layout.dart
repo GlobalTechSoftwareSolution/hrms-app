@@ -14,7 +14,7 @@ import '../screens/employee/employee_tickets_screen.dart';
 import '../screens/employee/employee_projects_screen.dart';
 import '../screens/employee/employee_resignation_screen.dart';
 import '../screens/employee/employee_profile_screen.dart';
-import '../screens/notifications_screen.dart';
+import '../screens/employee/employee_notice_screen.dart';
 
 class EmployeeLayout extends StatefulWidget {
   const EmployeeLayout({super.key});
@@ -30,7 +30,7 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
 
   final List<Widget> _screens = [
     const EmployeeHomeScreen(),
-    const NotificationsScreen(),
+    const EmployeeNoticeScreen(),
     const EmployeeAttendanceScreen(),
   ];
 
@@ -43,7 +43,7 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
     NavigationDestination(
       icon: Icon(Icons.notifications_outlined),
       selectedIcon: Icon(Icons.notifications),
-      label: 'Notifications',
+      label: 'Notices',
     ),
     NavigationDestination(
       icon: Icon(Icons.access_time_outlined),

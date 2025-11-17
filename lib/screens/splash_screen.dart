@@ -1,7 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 import 'onboarding_screen.dart';
 import 'login_screen.dart';
+import 'ceo/ceo_dashboard_screen.dart';
+import 'manager/manager_dashboard_screen.dart';
+import 'hr/hr_dashboard_screen.dart';
+import 'employee/employee_dashboard_screen.dart';
+import 'admin/admin_dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -44,23 +51,70 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _navigateToNext() async {
     await Future.delayed(const Duration(seconds: 3));
-    
+
     if (!mounted) return;
-    
+
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
 
     if (!mounted) return;
 
-    if (hasSeenOnboarding) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    } else {
+    // If user has not seen onboarding, go there first
+    if (!hasSeenOnboarding) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const OnboardingScreen()),
       );
+      return;
     }
+
+    // If onboarding done, try auto-login using stored token & user info
+    final api = ApiService();
+    final isAuthenticated = await api.isAuthenticated();
+
+    if (!mounted) return;
+
+    if (isAuthenticated) {
+      final userInfoStr = prefs.getString('user_info');
+      if (userInfoStr != null && userInfoStr.isNotEmpty) {
+        try {
+          final userInfo = jsonDecode(userInfoStr) as Map<String, dynamic>;
+          final role = (userInfo['role'] ?? '').toString();
+
+          Widget dashboardScreen;
+          switch (role) {
+            case 'ceo':
+              dashboardScreen = const CeoDashboardScreen();
+              break;
+            case 'manager':
+              dashboardScreen = const ManagerDashboardScreen();
+              break;
+            case 'hr':
+              dashboardScreen = const HrDashboardScreen();
+              break;
+            case 'employee':
+              dashboardScreen = const EmployeeDashboardScreen();
+              break;
+            case 'admin':
+              dashboardScreen = const AdminDashboardScreen();
+              break;
+            default:
+              dashboardScreen = const LoginScreen();
+          }
+
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => dashboardScreen),
+          );
+          return;
+        } catch (_) {
+          // If parsing fails, fall through to login
+        }
+      }
+    }
+
+    // Fallback: go to login screen
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   @override

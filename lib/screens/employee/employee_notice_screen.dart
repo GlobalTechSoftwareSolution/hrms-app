@@ -65,17 +65,26 @@ class _EmployeeNoticeScreenState extends State<EmployeeNoticeScreen> {
       final response = await _apiService.get('/accounts/list_notices/');
       debugPrint('📥 Raw response: $response');
 
+      if (_userEmail.isEmpty) {
+        debugPrint('⚠️ No user_email in SharedPreferences, cannot filter notices');
+      }
+
       // Handle both old and new API structures
-      final allNotices =
-          (response['data']?['notices'] ?? response['notices'] ?? []) as List;
+      final dynamicRaw = response['data']?['notices'] ?? response['notices'] ?? [];
+      final allNotices = List<Map<String, dynamic>>.from(
+        (dynamicRaw as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
       debugPrint('📋 Total notices from API: ${allNotices.length}');
 
+      // Match web logic: only notices whose notice_to.toString() == user_email
       final noticesList = allNotices
           .where((n) {
             final noticeTo = n['notice_to'];
-            final matches = noticeTo == null || noticeTo == _userEmail;
+            final noticeToStr = noticeTo?.toString() ?? '';
+            final matches =
+                _userEmail.isNotEmpty && noticeToStr == _userEmail;
             debugPrint(
-              'Notice ${n['id']}: notice_to=$noticeTo, matches=$matches',
+              'Notice ${n['id']}: notice_to=$noticeToStr, user=$_userEmail, matches=$matches',
             );
             return matches;
           })
@@ -219,39 +228,55 @@ class _EmployeeNoticeScreenState extends State<EmployeeNoticeScreen> {
   }
 
   Widget _buildHeader() {
+    final isSmallScreen = MediaQuery.of(context).size.width < 600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.notifications, size: 32, color: Colors.black),
-                      SizedBox(width: 12),
-                      Text(
-                        'Notices',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Stay updated with important announcements and updates',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                ],
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade100),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(isSmallScreen ? 4 : 6),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(isSmallScreen ? 4 : 6),
+                ),
+                child: Icon(
+                  Icons.notifications_active,
+                  size: isSmallScreen ? 20 : 24,
+                  color: Colors.blue.shade600,
+                ),
               ),
-            ),
-          ],
+              SizedBox(width: isSmallScreen ? 8 : 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Notices',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Stay updated with important announcements and updates',
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         Wrap(
@@ -274,21 +299,6 @@ class _EmployeeNoticeScreenState extends State<EmployeeNoticeScreen> {
                 ),
                 child: const Text('Mark All as Read'),
               ),
-            ElevatedButton(
-              onPressed: () => _showCreateDialog(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade600,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Post New Notice'),
-            ),
             OutlinedButton(
               onPressed: () => setState(
                 () => _viewMode = _viewMode == 'list' ? 'grid' : 'list',
@@ -360,7 +370,16 @@ class _EmployeeNoticeScreenState extends State<EmployeeNoticeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             value,
@@ -599,10 +618,10 @@ class _EmployeeNoticeScreenState extends State<EmployeeNoticeScreen> {
               notice['message'] ?? '',
               style: const TextStyle(
                 color: Colors.grey,
-                fontSize: 14,
-                height: 1.4,
+                fontSize: 13,
+                height: 1.3,
               ),
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 12),

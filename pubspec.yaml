@@ -70,8 +70,11 @@ dependencies:
   open_filex: ^4.5.0
   file_picker: ^8.0.0
   
-  # URL launcher for opening documents
+  # URL launcher for external links
   url_launcher: ^6.2.2
+
+  # In-app webview for viewing PDFs/links
+  webview_flutter: ^4.7.0
   
 
 dev_dependencies:

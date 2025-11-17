@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../services/documents_service.dart';
+
+import '../../services/api_service.dart';
 import '../../models/employee_documents_model.dart';
+import '../../services/documents_service.dart';
+import '../../utils/file_viewer.dart';
 
 class EmployeeFullProfileScreen extends StatefulWidget {
   final Map<String, dynamic> employee;
@@ -618,34 +620,7 @@ class _EmployeeFullProfileScreenState extends State<EmployeeFullProfileScreen> {
   }
 
   Future<void> _viewDocument(BuildContext context, String documentUrl) async {
-    try {
-      // Ensure the URL is properly formatted
-      String fullUrl = documentUrl;
-      if (!documentUrl.startsWith('http')) {
-        fullUrl = 'https://globaltechsoftwaresolutions.cloud/api/$documentUrl';
-      }
-
-      final Uri url = Uri.parse(fullUrl);
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open document'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error opening document: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    await openRemoteFile(context, documentUrl, title: 'Document');
   }
 
   Widget _buildDocumentsSection() {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
 import '../services/api_service.dart';
@@ -32,6 +33,27 @@ class _LoginScreenState extends State<LoginScreen> {
   // Message state
   String? _successMessage;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLastLogin();
+  }
+
+  Future<void> _loadLastLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastEmail = prefs.getString('last_login_email');
+    final lastRole = prefs.getString('last_login_role');
+    if (!mounted) return;
+    setState(() {
+      if (lastEmail != null && lastEmail.isNotEmpty) {
+        _emailController.text = lastEmail;
+      }
+      if (lastRole != null && lastRole.isNotEmpty) {
+        _role = lastRole;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -120,6 +142,10 @@ class _LoginScreenState extends State<LoginScreen> {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_email', user['email']);
           print('Logged-in user email: ${user['email']}');
+
+          // Remember last login for convenience
+          await prefs.setString('last_login_email', user['email']);
+          await prefs.setString('last_login_role', user['role'] ?? _role);
           
           // Fetch full user profile data to get profile_picture
           String? profilePicture;
@@ -274,11 +300,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 48),
                 
                 // Login form
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                AutofillGroup(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       // Role Selection
                       const Text(
                         'Select Role',
@@ -335,6 +362,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [
+                          AutofillHints.username,
+                          AutofillHints.email,
+                        ],
                         decoration: InputDecoration(
                           hintText: 'your.email@company.com',
                           prefixIcon: const Icon(Icons.email_outlined),
@@ -367,6 +399,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [
+                          AutofillHints.password,
+                        ],
+                        onFieldSubmitted: (_) {
+                          if (!_isLoading) {
+                            _handleLogin();
+                          }
+                        },
                         decoration: InputDecoration(
                           hintText: 'Enter your password',
                           prefixIcon: const Icon(Icons.lock_outlined),
@@ -539,6 +580,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
+                ),
                 ),
               ],
             ),

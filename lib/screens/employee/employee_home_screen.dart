@@ -19,14 +19,16 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   bool _isLoading = true;
   int _attendanceRate = 0;
   int _pendingRequests = 0;
-  double _hoursThisWeek = 0.0;
+  double _hoursThisWeek = 0.0; // still tracked but not shown directly
+  double _hoursToday = 0.0;
   int _leaveBalance = 15;
 
   List<Map<String, dynamic>> _attendanceRecords = [];
   List<Map<String, dynamic>> _leaveData = [];
   String _userEmail = '';
 
-  final double _totalPossibleHours = 40.0; // 8 hours * 5 days
+  // Target working hours for a single day
+  final double _totalPossibleHours = 8.0; // 8 hours per day
 
   @override
   void initState() {
@@ -103,41 +105,47 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           _attendanceRecords = userAttendance;
         });
 
-        // Calculate attendance rate
-        final totalDays = userAttendance.length;
-        final presentDays = userAttendance
-            .where(
-              (a) =>
-                  (a['check_in'] ?? a['checkIn']) != null &&
-                  (a['check_out'] ?? a['checkOut']) != null,
-            )
-            .length;
-
-        setState(() {
-          _attendanceRate = totalDays > 0
-              ? ((presentDays / totalDays) * 100).round()
-              : 0;
-        });
-
-        // Calculate hours this week
+        // Calculate hours (this week + today)
         final now = DateTime.now();
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
         double weekHours = 0.0;
+        double todayHours = 0.0;
 
         for (var rec in userAttendance) {
           final checkIn = rec['check_in'] ?? rec['checkIn'];
           final checkOut = rec['check_out'] ?? rec['checkOut'];
 
-          if (checkIn != null && checkOut != null) {
+          if (checkIn != null) {
             try {
-              final date = rec['date'] as String;
-              final inTime = DateTime.parse('${date}T$checkIn');
-              final outTime = DateTime.parse('${date}T$checkOut');
+              final dateStr = rec['date'] as String;
+              final date = DateTime.parse(dateStr);
+              final inTime = DateTime.parse('${dateStr}T$checkIn');
 
-              if (inTime.isAfter(startOfWeek) ||
-                  inTime.isAtSameMomentAs(startOfWeek)) {
-                final hours = outTime.difference(inTime).inMinutes / 60.0;
-                weekHours += hours;
+              // Weekly hours (only if check-out exists)
+              if (checkOut != null) {
+                final outTime = DateTime.parse('${dateStr}T$checkOut');
+                if (inTime.isAfter(startOfWeek) ||
+                    inTime.isAtSameMomentAs(startOfWeek)) {
+                  final hours = outTime.difference(inTime).inMinutes / 60.0;
+                  weekHours += hours;
+                }
+              }
+
+              // Today hours = now - check-in (or check-out if available)
+              if (date.year == now.year &&
+                  date.month == now.month &&
+                  date.day == now.day) {
+                DateTime outTimeForToday;
+                if (checkOut != null) {
+                  outTimeForToday = DateTime.parse('${dateStr}T$checkOut');
+                } else {
+                  outTimeForToday = now;
+                }
+                final diffMinutes =
+                    outTimeForToday.difference(inTime).inMinutes;
+                if (diffMinutes > 0) {
+                  todayHours = diffMinutes / 60.0;
+                }
               }
             } catch (e) {
               print('Error parsing time: $e');
@@ -147,6 +155,17 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
         setState(() {
           _hoursThisWeek = weekHours;
+          _hoursToday = todayHours;
+
+          // Attendance rate as percentage of today's 8-hour target
+          if (_hoursToday > 0) {
+            int rate = ((_hoursToday / _totalPossibleHours) * 100).round();
+            if (rate < 0) rate = 0;
+            if (rate > 100) rate = 100;
+            _attendanceRate = rate;
+          } else {
+            _attendanceRate = 0;
+          }
         });
       }
     } catch (e) {
@@ -266,10 +285,10 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           bgColor: Colors.green.shade50,
         ),
         _buildStatCard(
-          title: 'Hours Worked',
-          value: '${_hoursThisWeek.toStringAsFixed(1)} hrs',
+          title: 'Hours Worked Today',
+          value: _formatHoursDuration(_hoursToday),
           subtitle:
-              '${((_hoursThisWeek / _totalPossibleHours) * 100).toStringAsFixed(1)}% of ${_totalPossibleHours.toInt()} hrs',
+              '${((_hoursToday / _totalPossibleHours) * 100).toStringAsFixed(1)}% of ${_totalPossibleHours.toInt()} hrs',
           icon: Icons.access_time,
           color: Colors.purple,
           bgColor: Colors.purple.shade50,
@@ -277,7 +296,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         _buildStatCard(
           title: 'Attendance Rate',
           value: '$_attendanceRate%',
-          subtitle: 'Based on days attended',
+          subtitle: 'Of ${_totalPossibleHours.toInt()} hrs today',
           icon: Icons.trending_up,
           color: Colors.blue,
           bgColor: Colors.blue.shade50,
@@ -444,7 +463,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                       ),
                     ),
                     Text(
-                      '${hours.toStringAsFixed(1)} hrs',
+                      _formatHoursDuration(hours),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -666,9 +685,11 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             const SizedBox(height: 8),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey[700],
               ),
@@ -677,6 +698,14 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         ),
       ),
     );
+  }
+
+  String _formatHoursDuration(double hours) {
+    if (hours <= 0) return '0h 00m';
+    final totalMinutes = (hours * 60).round();
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    return '${h}h ${m.toString().padLeft(2, '0')}m';
   }
 
   String _formatTime(String time) {

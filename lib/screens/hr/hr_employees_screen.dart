@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../layouts/dashboard_layout.dart';
 import '../../services/api_service.dart';
+import '../../utils/file_viewer.dart';
 
 class HrEmployeesScreen extends StatefulWidget {
   const HrEmployeesScreen({super.key});
@@ -799,7 +800,8 @@ class _HrEmployeesScreenState extends State<HrEmployeesScreen> {
                             title: Text(doc['document_name']?.toString() ?? ''),
                             trailing: TextButton(
                               onPressed: () {
-                                // TODO: open doc URL via url_launcher
+                                final url = doc['document_file']?.toString() ?? '';
+                                openRemoteFile(context, url, title: 'Document');
                               },
                               child: const Text('View'),
                             ),

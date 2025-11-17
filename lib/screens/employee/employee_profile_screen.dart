@@ -2,11 +2,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+
 import '../../models/employee_profile_model.dart';
 import '../../models/employee_documents_model.dart';
 import '../../services/profile_service.dart';
 import '../../services/documents_service.dart';
+import '../../utils/file_viewer.dart';
 import 'employee_documents_upload_screen.dart';
 
 class EmployeeProfileScreen extends StatefulWidget {
@@ -1028,42 +1031,30 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
   }
 
   Future<void> _openDocument(String url) async {
-    try {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open document')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening document: $e')),
-        );
-      }
-    }
+    await openRemoteFile(context, url, title: 'Document');
   }
 
   Future<void> _downloadDocument(String url, String fileName) async {
     try {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Opening $fileName...')),
+            SnackBar(content: Text('Failed to download document: HTTP ${response.statusCode}')),
           );
         }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not download document')),
-          );
-        }
+        return;
+      }
+
+      final dir = await getApplicationDocumentsDirectory();
+      final filePath = '${dir.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Downloaded to: $fileName (app documents folder)')),
+        );
       }
     } catch (e) {
       if (mounted) {

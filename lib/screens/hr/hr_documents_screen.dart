@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../layouts/dashboard_layout.dart';
+import '../../utils/file_viewer.dart';
 import '../../models/employee_documents_model.dart';
 import '../../services/api_service.dart';
 import '../../services/documents_service.dart';
@@ -879,28 +879,7 @@ class _UserDetailsContentState extends State<_UserDetailsContent> {
   String get _email => (widget.user['email'] ?? '').toString();
 
   Future<void> _openDocument(String url) async {
-    try {
-      String fullUrl = url;
-      if (!url.startsWith('http')) {
-        fullUrl = '${ApiService.baseUrl}/$url';
-      }
-      final uri = Uri.parse(fullUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open document')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening document: $e')),
-        );
-      }
-    }
+    await openRemoteFile(context, url, title: 'Document');
   }
 
   @override

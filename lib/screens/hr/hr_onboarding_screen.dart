@@ -185,7 +185,7 @@ class _HrOnboardingScreenState extends State<HrOnboardingScreen> {
     }
   }
 
-  Future<void> _onboardNewEmployee() async {
+  Future<void> _onboardNewEmployee(XFile? pickedImage) async {
     final email = _onboardEmailController.text.trim();
     final password = _onboardPasswordController.text.trim();
     if (email.isEmpty || password.isEmpty) return;
@@ -195,21 +195,48 @@ class _HrOnboardingScreenState extends State<HrOnboardingScreen> {
     });
 
     try {
-      final payload = {
-        'email': email,
-        'password': password,
-        'role': 'employee',
-      };
+      if (pickedImage != null) {
+        // Use multipart request when profile picture is provided
+        final uri = Uri.parse('${ApiService.baseUrl}/accounts/signup/');
+        final request = http.MultipartRequest('POST', uri);
 
-      final res = await _apiService.post('/accounts/signup/', payload);
+        request.fields['email'] = email;
+        request.fields['password'] = password;
+        request.fields['role'] = 'employee';
 
-      if (res['success'] != true) {
-        String msg = 'Failed to onboard employee';
-        final data = res['data'];
-        if (data is Map && data['detail'] is String) {
-          msg = data['detail'] as String;
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'profile_picture',
+            pickedImage.path,
+          ),
+        );
+
+        final streamedResponse = await request.send();
+        if (streamedResponse.statusCode < 200 ||
+            streamedResponse.statusCode >= 300) {
+          final respBody = await streamedResponse.stream.bytesToString();
+          throw Exception(
+            'Failed to onboard employee: ${streamedResponse.statusCode} $respBody',
+          );
         }
-        throw Exception(msg);
+      } else {
+        // Fallback to existing JSON signup when no picture is selected
+        final payload = {
+          'email': email,
+          'password': password,
+          'role': 'employee',
+        };
+
+        final res = await _apiService.post('/accounts/signup/', payload);
+
+        if (res['success'] != true) {
+          String msg = 'Failed to onboard employee';
+          final data = res['data'];
+          if (data is Map && data['detail'] is String) {
+            msg = data['detail'] as String;
+          }
+          throw Exception(msg);
+        }
       }
 
       if (!mounted) return;
@@ -268,12 +295,47 @@ class _HrOnboardingScreenState extends State<HrOnboardingScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setLocalState) {
+            XFile? pickedImage;
+
+            Future<void> pickImage() async {
+              final picker = ImagePicker();
+              final XFile? img =
+                  await picker.pickImage(source: ImageSource.gallery);
+              if (img != null) {
+                setLocalState(() {
+                  pickedImage = img;
+                });
+              }
+            }
+
             return AlertDialog(
               title: const Text('Onboard New Employee'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Profile picture preview + picker
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundImage: pickedImage != null
+                              ? FileImage(File(pickedImage!.path))
+                                  as ImageProvider
+                              : null,
+                          child: pickedImage == null
+                              ? const Icon(Icons.person, size: 30)
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        TextButton.icon(
+                          onPressed: pickImage,
+                          icon: const Icon(Icons.image),
+                          label: const Text('Add Profile Picture'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: _onboardEmailController,
                       keyboardType: TextInputType.emailAddress,
@@ -310,7 +372,7 @@ class _HrOnboardingScreenState extends State<HrOnboardingScreen> {
                       ? null
                       : () async {
                           setLocalState(() {});
-                          await _onboardNewEmployee();
+                          await _onboardNewEmployee(pickedImage);
                         },
                   child: _isSubmittingOnboard
                       ? const SizedBox(
@@ -974,14 +1036,37 @@ class _HrOnboardingScreenState extends State<HrOnboardingScreen> {
               return DataRow(
                 cells: [
                   DataCell(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Row(
                       children: [
-                        Text(emp.fullname),
-                        Text(
-                          emp.email,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundImage: (emp.profilePicture != null &&
+                                  emp.profilePicture!.isNotEmpty)
+                              ? NetworkImage(emp.profilePicture!)
+                              : null,
+                          child: (emp.profilePicture == null ||
+                                  emp.profilePicture!.isEmpty)
+                              ? Text(
+                                  emp.fullname.isNotEmpty
+                                      ? emp.fullname[0].toUpperCase()
+                                      : '?',
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(emp.fullname),
+                            Text(
+                              emp.email,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1027,13 +1112,46 @@ class _HrOnboardingScreenState extends State<HrOnboardingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    emp.fullname,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  Text(
-                    emp.email,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundImage: (emp.profilePicture != null &&
+                                emp.profilePicture!.isNotEmpty)
+                            ? NetworkImage(emp.profilePicture!)
+                            : null,
+                        child: (emp.profilePicture == null ||
+                                emp.profilePicture!.isEmpty)
+                            ? Text(
+                                emp.fullname.isNotEmpty
+                                    ? emp.fullname[0].toUpperCase()
+                                    : '?',
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              emp.fullname,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              emp.email,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Row(

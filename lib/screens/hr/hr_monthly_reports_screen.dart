@@ -76,9 +76,25 @@ class _HrMonthlyReportsScreenState extends State<HrMonthlyReportsScreen>
         }
       }
 
-      // Fetch attendance
+      // Fetch attendance ONLY for selected month/year
+      final monthNames = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+      ];
+      final monthName = monthNames[_selectedMonth];
+
       final attendanceResponse = await _apiService.get(
-        '/accounts/list_attendance/',
+        '/accounts/list_attendance/?month=$monthName&year=$_selectedYear',
       );
       debugPrint('Attendance Response: $attendanceResponse');
       if (attendanceResponse['success'] == true) {
@@ -826,7 +842,12 @@ class _HrMonthlyReportsScreenState extends State<HrMonthlyReportsScreen>
                     child: Text(months[index]),
                   ),
                 ),
-                onChanged: (value) => setState(() => _selectedMonth = value!),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _selectedMonth = value);
+                  // Re-fetch attendance so API returns only the selected month
+                  _fetchData();
+                },
               ),
             ],
           ),
@@ -862,7 +883,7 @@ class _HrMonthlyReportsScreenState extends State<HrMonthlyReportsScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Viewing data for ${months[_selectedMonth]} ${DateTime.now().year}',
+            'Viewing data for ${months[_selectedMonth]} $_selectedYear',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,

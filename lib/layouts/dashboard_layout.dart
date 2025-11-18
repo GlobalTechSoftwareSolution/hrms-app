@@ -94,17 +94,19 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       {'name': 'Profile', 'path': '/manager/profile'},
     ],
     'hr': [
-      {'name': 'Dashboard', 'path': '/ceo/dashboard'},
-      {'name': 'Reports', 'path': '/ceo/reports'},
-      {'name': 'Employees', 'path': '/ceo/employees'},
-      {'name': 'Attendance', 'path': '/ceo/attendance'},
-      {'name': 'Monthly Report', 'path': '/ceo/monthly_report'},
-      {'name': 'Finance', 'path': '/ceo/finance'},
-      {'name': 'Projects', 'path': '/ceo/projects'},
-      {'name': 'Notice', 'path': '/ceo/notice'},
-      {'name': 'Calendar', 'path': '/ceo/calendar'},
-      {'name': 'Tickets', 'path': '/ceo/tickets'},
-      {'name': 'Profile', 'path': '/ceo/profile'},
+      {'name': 'Dashboard', 'path': '/hr/dashboard'},
+      {'name': 'Employees', 'path': '/hr/employee'},
+      {'name': 'Attendance', 'path': '/hr/attendance'},
+      {'name': 'Monthly Report', 'path': '/hr/monthly_report'},
+      {'name': 'Payroll', 'path': '/hr/payroll'},
+      {'name': 'Onboarding', 'path': '/hr/onboarding'},
+      {'name': 'Offboarding', 'path': '/hr/offboarding'},
+      {'name': 'Leaves', 'path': '/hr/leaves'},
+      {'name': 'Documents', 'path': '/hr/documents'},
+      {'name': 'Careers', 'path': '/hr/careers'},
+      {'name': 'Notice', 'path': '/hr/notice'},
+      {'name': 'Tickets', 'path': '/hr/tickets'},
+      {'name': 'Profile', 'path': '/hr/profile'},
     ],
     'employee': [
       {'name': 'Dashboard', 'path': '/employee/dashboard'},
@@ -433,7 +435,7 @@ class _DashboardLayoutState extends State<DashboardLayout> {
                     _navigateToPage('/ceo/profile');
                     break;
                   case 'hr':
-                    _navigateToPage('/ceo/profile');
+                    _navigateToPage('/hr/profile');
                     break;
                   case 'admin':
                     _navigateToPage('/admin/profile');

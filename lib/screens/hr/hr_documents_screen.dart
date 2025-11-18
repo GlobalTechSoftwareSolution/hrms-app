@@ -215,6 +215,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen> {
 
       // Re-fetch documents list for this email
       final docsRes = await _apiService.get('/accounts/list_documents/');
+      String? docUrl;
       if (docsRes['success'] == true) {
         final data = docsRes['data'];
         final list = data is List
@@ -234,12 +235,40 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen> {
           setState(() {
             _documentsByEmail[email] = docs;
           });
+          // Try to grab the freshly issued document URL for the dialog
+          final allDocs = docs.getAllDocuments();
+          final info = allDocs[docKey];
+          if (info != null && info.isAvailable) {
+            docUrl = info.url;
+          }
         }
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$docKey issued successfully for $email')),
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            title: Text(docKey),
+            content: Text(
+              '$docKey issued successfully for $email.',
+            ),
+            actions: [
+              if (docUrl != null && docUrl!.isNotEmpty)
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    openRemoteFile(context, docUrl!, title: docKey);
+                  },
+                  child: const Text('View Document'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
       );
     } catch (e) {
       if (!mounted) return;
@@ -696,9 +725,16 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen> {
     final department = (user['department'] ?? '').toString();
     final designation = (user['designation'] ?? '').toString();
     final role = (user['role'] ?? '').toString();
+    final profilePicture = (user['profile_picture'] ?? '').toString();
 
     final initials = name.isNotEmpty
-        ? name.trim().split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join().toUpperCase()
+        ? name
+            .trim()
+            .split(' ')
+            .map((p) => p.isNotEmpty ? p[0] : '')
+            .take(2)
+            .join()
+            .toUpperCase()
         : 'U';
 
     return InkWell(
@@ -725,13 +761,18 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen> {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.blue.shade100,
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                  ),
+                  backgroundImage: profilePicture.isNotEmpty
+                      ? NetworkImage(profilePicture)
+                      : null,
+                  child: profilePicture.isNotEmpty
+                      ? null
+                      : Text(
+                          initials,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -886,6 +927,7 @@ class _UserDetailsContentState extends State<_UserDetailsContent> {
   Widget build(BuildContext context) {
     final name = (widget.user['fullname'] ?? widget.user['name'] ?? '').toString();
     final role = (widget.user['role'] ?? '').toString();
+    final profilePicture = (widget.user['profile_picture'] ?? '').toString();
 
     return Column(
       children: [
@@ -897,6 +939,25 @@ class _UserDetailsContentState extends State<_UserDetailsContent> {
           ),
           child: Row(
             children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.white,
+                backgroundImage: profilePicture.isNotEmpty
+                    ? NetworkImage(profilePicture)
+                    : null,
+                child: profilePicture.isNotEmpty
+                    ? null
+                    : Text(
+                        name.isNotEmpty
+                            ? name[0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1166,40 +1227,83 @@ class _UserDetailsContentState extends State<_UserDetailsContent> {
                                   },
                                   child: const Text('View'),
                                 ),
-                              if (!hasDoc && issueable && endpoint != null)
+                              if (issueable && endpoint != null)
                                 TextButton(
                                   onPressed: isLoading
                                       ? null
                                       : () async {
+                                          // If document already exists, confirm re-issue
+                                          if (hasDoc) {
+                                            final confirmed = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) {
+                                                return AlertDialog(
+                                                  title: Text(field),
+                                                  content: const Text(
+                                                    'Document already exists. Do you want to regenerate/issue again?',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.of(ctx).pop(false),
+                                                      child: const Text('Cancel'),
+                                                    ),
+                                                    ElevatedButton(
+                                                      onPressed: () => Navigator.of(ctx).pop(true),
+                                                      child: const Text('Issue Again'),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                            if (confirmed != true) return;
+                                          }
+
+                                          // Optional: small global loader overlay while API runs
+                                          showDialog(
+                                            context: context,
+                                            barrierDismissible: false,
+                                            builder: (_) => const Center(
+                                              child: CircularProgressIndicator(),
+                                            ),
+                                          );
+
                                           await widget.onIssueDocument(
                                             email,
                                             field,
                                             endpoint,
                                           );
+
                                           // After issuing, fetch latest documents for this user
                                           final updatedDocs = await _documentsService
                                               .fetchDocuments(email);
-                                          if (!mounted || updatedDocs == null) return;
+                                          if (!mounted || updatedDocs == null) {
+                                            Navigator.of(context, rootNavigator: true).pop();
+                                            return;
+                                          }
                                           setState(() {
                                             _docsMap =
                                                 updatedDocs.getAllDocuments();
                                           });
-                                          final newDoc = _docsMap[field];
-                                          if (newDoc != null &&
-                                              newDoc.isAvailable &&
-                                              newDoc.url != null) {
-                                            _openDocument(newDoc.url!);
-                                          }
+
+                                          // Remove loader before showing success dialog (inside onIssueDocument)
+                                          Navigator.of(context, rootNavigator: true).pop();
                                         },
                                   child: isLoading
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
+                                      ? Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: const [
+                                            SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text('Rendering...'),
+                                          ],
                                         )
-                                      : const Text('Issue'),
+                                      : Text(hasDoc ? 'Re-issue' : 'Issue'),
                                 ),
                             ],
                           ),

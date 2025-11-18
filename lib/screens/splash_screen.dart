@@ -9,6 +9,7 @@ import 'ceo/ceo_employees_screen.dart';
 import 'manager/manager_dashboard_screen.dart';
 import 'employee/employee_dashboard_screen.dart';
 import 'admin/admin_dashboard_screen.dart';
+import 'hr/hr_dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -90,7 +91,8 @@ class _SplashScreenState extends State<SplashScreen>
               dashboardScreen = const ManagerDashboardScreen();
               break;
             case 'hr':
-              dashboardScreen = const CeoEmployeesScreen();
+              // Correct: HR users should see the HR dashboard
+              dashboardScreen = const HrDashboardScreen();
               break;
             case 'employee':
               dashboardScreen = const EmployeeDashboardScreen();

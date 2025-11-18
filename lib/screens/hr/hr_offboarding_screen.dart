@@ -662,6 +662,7 @@ class _HrOffboardingScreenState extends State<HrOffboardingScreen> {
     final email = emp['email']?.toString() ?? '';
     final department = emp['department']?.toString() ?? '—';
     final designation = emp['designation']?.toString() ?? '—';
+    final profilePicture = emp['profile_picture']?.toString();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -675,14 +676,20 @@ class _HrOffboardingScreenState extends State<HrOffboardingScreen> {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.blue.shade100,
-                  child: Text(
-                    fullname.isNotEmpty
-                        ? fullname[0].toUpperCase()
-                        : email.isNotEmpty
-                            ? email[0].toUpperCase()
-                            : 'U',
-                    style: const TextStyle(color: Colors.blue),
-                  ),
+                  backgroundImage: profilePicture != null &&
+                          profilePicture.isNotEmpty
+                      ? NetworkImage(profilePicture)
+                      : null,
+                  child: (profilePicture == null || profilePicture.isEmpty)
+                      ? Text(
+                          fullname.isNotEmpty
+                              ? fullname[0].toUpperCase()
+                              : email.isNotEmpty
+                                  ? email[0].toUpperCase()
+                                  : 'U',
+                          style: const TextStyle(color: Colors.blue),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -755,6 +762,7 @@ class _HrOffboardingScreenState extends State<HrOffboardingScreen> {
     final email = emp['email']?.toString() ?? '';
     final department = emp['department']?.toString() ?? '—';
     final designation = emp['designation']?.toString() ?? '—';
+    final profilePicture = emp['profile_picture']?.toString();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -768,14 +776,20 @@ class _HrOffboardingScreenState extends State<HrOffboardingScreen> {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.orange.shade100,
-                  child: Text(
-                    fullname.isNotEmpty
-                        ? fullname[0].toUpperCase()
-                        : email.isNotEmpty
-                            ? email[0].toUpperCase()
-                            : 'U',
-                    style: const TextStyle(color: Colors.orange),
-                  ),
+                  backgroundImage: profilePicture != null &&
+                          profilePicture.isNotEmpty
+                      ? NetworkImage(profilePicture)
+                      : null,
+                  child: (profilePicture == null || profilePicture.isEmpty)
+                      ? Text(
+                          fullname.isNotEmpty
+                              ? fullname[0].toUpperCase()
+                              : email.isNotEmpty
+                                  ? email[0].toUpperCase()
+                                  : 'U',
+                          style: const TextStyle(color: Colors.orange),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -878,6 +892,7 @@ class _HrOffboardingScreenState extends State<HrOffboardingScreen> {
         'Not specified';
     final releasedDate =
         _formatDate(emp['offboarded_at']?.toString() ?? emp['offboarded_datetime']?.toString());
+    final profilePicture = emp['profile_picture']?.toString();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -891,14 +906,20 @@ class _HrOffboardingScreenState extends State<HrOffboardingScreen> {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.red.shade100,
-                  child: Text(
-                    fullname.isNotEmpty
-                        ? fullname[0].toUpperCase()
-                        : email.isNotEmpty
-                            ? email[0].toUpperCase()
-                            : 'U',
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                  backgroundImage: profilePicture != null &&
+                          profilePicture.isNotEmpty
+                      ? NetworkImage(profilePicture)
+                      : null,
+                  child: (profilePicture == null || profilePicture.isEmpty)
+                      ? Text(
+                          fullname.isNotEmpty
+                              ? fullname[0].toUpperCase()
+                              : email.isNotEmpty
+                                  ? email[0].toUpperCase()
+                                  : 'U',
+                          style: const TextStyle(color: Colors.red),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

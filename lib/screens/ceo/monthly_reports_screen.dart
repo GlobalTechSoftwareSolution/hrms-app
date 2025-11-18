@@ -23,6 +23,21 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
 
   Map<String, Map<String, dynamic>> _employeeMetrics = {};
 
+  List<String> get months => [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
   List<int> get _years {
     final currentYear = DateTime.now().year;
     return List.generate(6, (i) => currentYear - 3 + i);
@@ -92,9 +107,25 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
         }
       }
 
-      // Fetch attendance
+      // Fetch attendance for selected month/year only
+      final monthNames = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+      ];
+      final monthName = monthNames[_selectedMonth];
+
       final attendanceResponse = await _apiService.get(
-        '/accounts/list_attendance/',
+        '/accounts/list_attendance/?month=$monthName&year=${_selectedYear}',
       );
       if (attendanceResponse['success'] == true) {
         final data = attendanceResponse['data'];
@@ -459,125 +490,14 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Filters Row (Now scrollable)
-            SizedBox(
-              height: 80,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Search
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 300),
-                      child: SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.4,
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Search employees...',
-                            prefixIcon: const Icon(Icons.search),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          onChanged: (value) =>
-                              setState(() => _searchQuery = value),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Department Filter
-                    SizedBox(
-                      width: 200,
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedDept,
-                        decoration: InputDecoration(
-                          labelText: 'Department',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        ),
-                        items: _departments
-                            .map(
-                              (dept) => DropdownMenuItem(
-                                value: dept,
-                                child: Text(
-                                  dept,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => _selectedDept = value!),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Month
-                    SizedBox(
-                      width: 140,
-                      child: DropdownButtonFormField<int>(
-                        value: _selectedMonth,
-                        decoration: InputDecoration(
-                          labelText: 'Month',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        ),
-                        items: List.generate(
-                          12,
-                          (index) => DropdownMenuItem(
-                            value: index,
-                            child: Text(months[index]),
-                          ),
-                        ),
-                        onChanged: (value) =>
-                            setState(() => _selectedMonth = value!),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Year
-                    SizedBox(
-                      width: 100,
-                      child: DropdownButtonFormField<int>(
-                        value: _selectedYear,
-                        decoration: InputDecoration(
-                          labelText: 'Year',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        ),
-                        items: _years
-                            .map(
-                              (year) => DropdownMenuItem(
-                                value: year,
-                                child: Text('$year'),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => _selectedYear = value!),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Filters (Responsive Layout)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWideScreen = constraints.maxWidth >= 768;
+                return isWideScreen
+                    ? _buildFiltersRow()
+                    : _buildFiltersColumn();
+              },
             ),
             const SizedBox(height: 20),
 
@@ -869,6 +789,8 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
@@ -879,6 +801,8 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
               color: Colors.black87,
             ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -1150,14 +1074,323 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Simple message for lack of records
-                        Center(
-                          child: Text(
-                            'Additional task and attendance details coming soon...',
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontStyle: FontStyle.italic,
-                            ),
+                        const SizedBox(height: 20),
+
+                        // Attendance Details Section
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Attendance Records (This Month)',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Builder(
+                                builder: (context) {
+                                  // Filter attendance for this employee AND selected month/year
+                                  final employeeAttendance =
+                                      _attendance.where((att) {
+                                        final attEmail =
+                                            (att['email'] ??
+                                                    att['email_id'] ??
+                                                    '')
+                                                .toString()
+                                                .toLowerCase()
+                                                .trim();
+                                        if (attEmail != email) return false;
+
+                                        final dateStr = att['date'];
+                                        if (dateStr == null) return false;
+                                        try {
+                                          final d = DateTime.parse(
+                                            dateStr
+                                                .toString()
+                                                .replaceFirst(' ', 'T'),
+                                          );
+                                          return d.month == (_selectedMonth + 1) &&
+                                              d.year == _selectedYear;
+                                        } catch (_) {
+                                          return false;
+                                        }
+                                      }).toList()
+                                        ..sort((a, b) {
+                                          // Sort by date descending
+                                          final dateA = DateTime.tryParse(
+                                                (a['date'] ?? '')
+                                                    .toString()
+                                                    .replaceFirst(' ', 'T'),
+                                              )
+                                                  ?.millisecondsSinceEpoch ??
+                                              0;
+                                          final dateB = DateTime.tryParse(
+                                                (b['date'] ?? '')
+                                                    .toString()
+                                                    .replaceFirst(' ', 'T'),
+                                              )
+                                                  ?.millisecondsSinceEpoch ??
+                                              0;
+                                          return dateB.compareTo(dateA);
+                                        });
+
+                                  if (employeeAttendance.isEmpty) {
+                                    return Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Text(
+                                          'No attendance records found for this month',
+                                          style: TextStyle(
+                                            color: Colors.grey.shade500,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.calendar_view_month,
+                                            color: Colors.blue,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${employeeAttendance.length} attendance records',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Column(
+                                        children: employeeAttendance.map((att) {
+                                          final rawDate = att['date']
+                                              ?.toString();
+                                          String dateLabel = rawDate ?? '';
+                                          String dayOfWeek = '';
+                                          if (rawDate != null &&
+                                              rawDate.isNotEmpty) {
+                                            try {
+                                              final d = DateTime.parse(
+                                                rawDate.replaceFirst(' ', 'T'),
+                                              );
+                                              dateLabel =
+                                                  '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+                                              final weekdays = [
+                                                'Mon',
+                                                'Tue',
+                                                'Wed',
+                                                'Thu',
+                                                'Fri',
+                                                'Sat',
+                                                'Sun',
+                                              ];
+                                              dayOfWeek =
+                                                  weekdays[d.weekday - 1];
+                                            } catch (_) {}
+                                          }
+
+                                          // Calculate day hours
+                                          double dayHours = 0.0;
+                                          final checkInRaw = att['check_in']
+                                              ?.toString();
+                                          final checkOutRaw = att['check_out']
+                                              ?.toString();
+                                          bool hasValidCheckInOut = false;
+
+                                          if (checkInRaw != null &&
+                                              checkOutRaw != null &&
+                                              checkInRaw.isNotEmpty &&
+                                              checkOutRaw.isNotEmpty) {
+                                            try {
+                                              final checkInTime = checkInRaw
+                                                  .split('.')
+                                                  .first;
+                                              final checkOutTime = checkOutRaw
+                                                  .split('.')
+                                                  .first;
+                                              final inParts = checkInTime
+                                                  .split(':')
+                                                  .map(int.parse)
+                                                  .toList();
+                                              final outParts = checkOutTime
+                                                  .split(':')
+                                                  .map(int.parse)
+                                                  .toList();
+                                              if (inParts.length >= 2 &&
+                                                  outParts.length >= 2) {
+                                                final inMinutes =
+                                                    inParts[0] * 60 +
+                                                    inParts[1];
+                                                final outMinutes =
+                                                    outParts[0] * 60 +
+                                                    outParts[1];
+                                                double diffMinutes =
+                                                    (outMinutes - inMinutes)
+                                                        .toDouble();
+                                                if (diffMinutes < 0)
+                                                  diffMinutes += 24 * 60;
+                                                dayHours = diffMinutes / 60.0;
+                                                // Only accept reasonable hours (0.5 to 16 hours)
+                                                if (dayHours >= 0.5 &&
+                                                    dayHours <= 16) {
+                                                  hasValidCheckInOut = true;
+                                                } else {
+                                                  dayHours = 0.0;
+                                                }
+                                              }
+                                            } catch (_) {}
+                                          }
+
+                                          final checkIn =
+                                              att['check_in']?.toString() ?? '';
+                                          final checkOut =
+                                              att['check_out']?.toString() ??
+                                              '';
+
+                                          Color statusColor = hasValidCheckInOut
+                                              ? Colors.green.shade700
+                                              : Colors.grey.shade500;
+                                          String hoursText = hasValidCheckInOut
+                                              ? '${dayHours.toStringAsFixed(1)}h'
+                                              : 'N/A';
+
+                                          String formatTime(String t) {
+                                            if (t.isEmpty) return 'N/A';
+                                            final parts = t.split(':');
+                                            if (parts.length < 2) return t;
+                                            int h = int.tryParse(parts[0]) ?? 0;
+                                            final m = parts[1];
+                                            final ampm = h >= 12 ? 'PM' : 'AM';
+                                            h = h % 12;
+                                            if (h == 0) h = 12;
+                                            return '$h:$m $ampm';
+                                          }
+
+                                          return Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 8,
+                                            ),
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Colors.grey.shade200,
+                                              ),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      '$dateLabel ($dayOfWeek)',
+                                                      style: const TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: Colors.black87,
+                                                      ),
+                                                    ),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 4,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: statusColor
+                                                            .withOpacity(0.1),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        hoursText,
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: statusColor,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                SingleChildScrollView(
+                                                  scrollDirection:
+                                                      Axis.horizontal,
+                                                  child: Row(
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.access_time,
+                                                        size: 16,
+                                                        color: Colors.grey,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'Check-in: ${formatTime(checkIn)}',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors
+                                                              .grey
+                                                              .shade600,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      const Icon(
+                                                        Icons.exit_to_app,
+                                                        size: 16,
+                                                        color: Colors.grey,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'Check-out: ${formatTime(checkOut)}',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors
+                                                              .grey
+                                                              .shade600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1270,6 +1503,223 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
               color: color,
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFiltersRow() {
+    return SizedBox(
+      height: 80,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Search
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 300),
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.4,
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search employees...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Department Filter
+            SizedBox(
+              width: 200,
+              child: DropdownButtonFormField<String>(
+                value: _selectedDept,
+                decoration: InputDecoration(
+                  labelText: 'Department',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                items: _departments
+                    .map(
+                      (dept) => DropdownMenuItem(
+                        value: dept,
+                        child: Text(dept, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedDept = value!),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Month
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                value: _selectedMonth,
+                decoration: InputDecoration(
+                  labelText: 'Month',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                items: List.generate(
+                  12,
+                  (index) => DropdownMenuItem(
+                    value: index,
+                    child: Text(months[index]),
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() => _selectedMonth = value!);
+                  _fetchData(); // Refresh data when month changes
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Year
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                value: _selectedYear,
+                decoration: InputDecoration(
+                  labelText: 'Year',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                items: _years
+                    .map(
+                      (year) =>
+                          DropdownMenuItem(value: year, child: Text('$year')),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedYear = value!),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFiltersColumn() {
+    return Column(
+      children: [
+        // Search full width
+        TextField(
+          decoration: InputDecoration(
+            hintText: 'Search employees...',
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+          ),
+          onChanged: (value) => setState(() => _searchQuery = value),
+        ),
+        const SizedBox(height: 12),
+        // Wrap for dropdowns
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: 180,
+              child: DropdownButtonFormField<String>(
+                value: _selectedDept,
+                decoration: InputDecoration(
+                  labelText: 'Department',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                items: _departments
+                    .map(
+                      (dept) => DropdownMenuItem(
+                        value: dept,
+                        child: Text(dept, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedDept = value!),
+              ),
+            ),
+            // Month
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                value: _selectedMonth,
+                decoration: InputDecoration(
+                  labelText: 'Month',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                items: List.generate(
+                  12,
+                  (index) => DropdownMenuItem(
+                    value: index,
+                    child: Text(months[index]),
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() => _selectedMonth = value!);
+                  _fetchData(); // Refresh data when month changes
+                },
+              ),
+            ),
+            // Year
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                value: _selectedYear,
+                decoration: InputDecoration(
+                  labelText: 'Year',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                items: _years
+                    .map(
+                      (year) =>
+                          DropdownMenuItem(value: year, child: Text('$year')),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedYear = value!),
+              ),
+            ),
+          ],
         ),
       ],
     );

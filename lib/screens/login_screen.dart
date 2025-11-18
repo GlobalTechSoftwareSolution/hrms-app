@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
 import '../services/api_service.dart';
 import 'ceo/ceo_dashboard_screen.dart';
+import 'ceo/ceo_employees_screen.dart';
 import 'manager/manager_dashboard_screen.dart';
-import 'hr/hr_dashboard_screen.dart';
 import 'employee/employee_dashboard_screen.dart';
 import 'admin/admin_dashboard_screen.dart';
 
@@ -20,16 +20,16 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _apiService = ApiService();
-  
+
   // Form fields
   String _role = '';
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   // UI state
   bool _obscurePassword = true;
   bool _isLoading = false;
-  
+
   // Message state
   String? _successMessage;
   String? _errorMessage;
@@ -104,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       // Call API endpoint matching Next.js structure
       final response = await _apiService.post('/accounts/login/', {
@@ -112,16 +112,18 @@ class _LoginScreenState extends State<LoginScreen> {
         'email': _emailController.text.trim(),
         'password': _passwordController.text,
       });
-      
+
       if (!mounted) return;
-      
+
       if (response['success']) {
         final data = response['data'];
-        
+
         // Check if user data exists and role matches
-        if (data != null && data['user'] != null && data['user']['role'] == _role) {
+        if (data != null &&
+            data['user'] != null &&
+            data['user']['role'] == _role) {
           final user = data['user'];
-          
+
           // Check if account is approved by admin
           if (user['is_staff'] == false) {
             setState(() {
@@ -129,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
             });
             return;
           }
-          
+
           // Store JWT token if backend provides it
           if (data['token'] != null) {
             await _apiService.saveToken(data['token']);
@@ -137,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
           } else {
             print('No JWT token returned from backend');
           }
-          
+
           // Store user email and info using SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_email', user['email']);
@@ -146,11 +148,13 @@ class _LoginScreenState extends State<LoginScreen> {
           // Remember last login for convenience
           await prefs.setString('last_login_email', user['email']);
           await prefs.setString('last_login_role', user['role'] ?? _role);
-          
+
           // Fetch full user profile data to get profile_picture
           String? profilePicture;
           try {
-            final profileResponse = await _apiService.get('/accounts/${_role}s/${user['email']}/');
+            final profileResponse = await _apiService.get(
+              '/accounts/${_role}s/${user['email']}/',
+            );
             if (profileResponse['success'] && profileResponse['data'] != null) {
               profilePicture = profileResponse['data']['profile_picture'];
               print('Fetched profile picture: $profilePicture');
@@ -158,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
           } catch (e) {
             print('Error fetching profile picture: $e');
           }
-          
+
           // Store user info
           await prefs.setString(
             'user_info',
@@ -169,12 +173,13 @@ class _LoginScreenState extends State<LoginScreen> {
               'phone': user['phone'] ?? '',
               'department': user['department'] ?? '',
               'picture': user['picture'] ?? '',
-              'profile_picture': profilePicture ?? user['profile_picture'] ?? '',
+              'profile_picture':
+                  profilePicture ?? user['profile_picture'] ?? '',
             }),
           );
-          
+
           print('Stored user info with profile picture: $profilePicture');
-          
+
           setState(() {
             _successMessage = 'Login successful!';
           });
@@ -182,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Navigate based on role
           await Future.delayed(const Duration(seconds: 1));
           if (!mounted) return;
-          
+
           // Role-based navigation
           Widget dashboardScreen;
           switch (_role) {
@@ -193,7 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
               dashboardScreen = const ManagerDashboardScreen();
               break;
             case 'hr':
-              dashboardScreen = const HrDashboardScreen();
+              dashboardScreen = const CeoEmployeesScreen();
               break;
             case 'employee':
               dashboardScreen = const EmployeeDashboardScreen();
@@ -204,10 +209,10 @@ class _LoginScreenState extends State<LoginScreen> {
             default:
               dashboardScreen = const EmployeeDashboardScreen();
           }
-          
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => dashboardScreen),
-          );
+
+          Navigator.of(
+            context,
+          ).pushReplacement(MaterialPageRoute(builder: (_) => dashboardScreen));
         } else {
           setState(() {
             _errorMessage = 'Role mismatch or check your credentials.';
@@ -216,14 +221,18 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         // Handle error response
         String errorMessage = 'Login failed. Check credentials.';
-        
+
         final data = response['data'];
         if (data != null) {
           if (data['detail'] != null) {
             errorMessage = data['detail'];
-          } else if (data['email'] != null && data['email'] is List && (data['email'] as List).isNotEmpty) {
+          } else if (data['email'] != null &&
+              data['email'] is List &&
+              (data['email'] as List).isNotEmpty) {
             errorMessage = data['email'][0];
-          } else if (data['password'] != null && data['password'] is List && (data['password'] as List).isNotEmpty) {
+          } else if (data['password'] != null &&
+              data['password'] is List &&
+              (data['password'] as List).isNotEmpty) {
             errorMessage = data['password'][0];
           }
         } else if (response['error'] != null) {
@@ -260,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 40),
-                
+
                 // Logo and title
                 Center(
                   child: Column(
@@ -268,7 +277,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Icon(
@@ -296,9 +307,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 48),
-                
+
                 // Login form
                 AutofillGroup(
                   child: Form(
@@ -306,281 +317,298 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                      // Role Selection
-                      const Text(
-                        'Select Role',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: _role.isEmpty ? null : _role,
-                        decoration: InputDecoration(
-                          hintText: 'Select your role',
-                          prefixIcon: const Icon(Icons.person_outline),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        // Role Selection
+                        const Text(
+                          'Select Role',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'ceo', child: Text('CEO')),
-                          DropdownMenuItem(value: 'manager', child: Text('Manager')),
-                          DropdownMenuItem(value: 'hr', child: Text('HR')),
-                          DropdownMenuItem(value: 'employee', child: Text('Employee')),
-                          DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _role = value ?? '';
-                            _errorMessage = null;
-                            _successMessage = null;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select your role';
-                          }
-                          return null;
-                        },
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Email field
-                      const Text(
-                        'Email Address',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [
-                          AutofillHints.username,
-                          AutofillHints.email,
-                        ],
-                        decoration: InputDecoration(
-                          hintText: 'your.email@company.com',
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        validator: _validateEmail,
-                        onChanged: (_) {
-                          setState(() {
-                            _errorMessage = null;
-                            _successMessage = null;
-                          });
-                        },
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Password field
-                      const Text(
-                        'Password',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const [
-                          AutofillHints.password,
-                        ],
-                        onFieldSubmitted: (_) {
-                          if (!_isLoading) {
-                            _handleLogin();
-                          }
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Enter your password',
-                          prefixIcon: const Icon(Icons.lock_outlined),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        validator: _validatePassword,
-                        onChanged: (_) {
-                          setState(() {
-                            _errorMessage = null;
-                            _successMessage = null;
-                          });
-                        },
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Forgot password
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Password reset coming soon'),
-                              ),
-                            );
-                          },
-                          child: const Text('Forgot Password?'),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Login button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: _role.isEmpty ? null : _role,
+                          decoration: InputDecoration(
+                            hintText: 'Select your role',
+                            prefixIcon: const Icon(Icons.person_outline),
+                            border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
                           ),
-                          child: _isLoading
-                              ? const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                      ),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Text(
-                                      'Logging in...',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : const Text(
-                                  'Login',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                          items: const [
+                            DropdownMenuItem(value: 'ceo', child: Text('CEO')),
+                            DropdownMenuItem(
+                              value: 'manager',
+                              child: Text('Manager'),
+                            ),
+                            DropdownMenuItem(value: 'hr', child: Text('HR')),
+                            DropdownMenuItem(
+                              value: 'employee',
+                              child: Text('Employee'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'admin',
+                              child: Text('Admin'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _role = value ?? '';
+                              _errorMessage = null;
+                              _successMessage = null;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select your role';
+                            }
+                            return null;
+                          },
                         ),
-                      ),
-                      
-                      // Message Display
-                      if (_successMessage != null) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            border: Border.all(color: Colors.green.shade200),
-                            borderRadius: BorderRadius.circular(12),
+
+                        const SizedBox(height: 24),
+
+                        // Email field
+                        const Text(
+                          'Email Address',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.check_circle, color: Colors.green.shade800),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _successMessage!,
-                                  style: TextStyle(color: Colors.green.shade800),
-                                ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [
+                            AutofillHints.username,
+                            AutofillHints.email,
+                          ],
+                          decoration: InputDecoration(
+                            hintText: 'your.email@company.com',
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          validator: _validateEmail,
+                          onChanged: (_) {
+                            setState(() {
+                              _errorMessage = null;
+                              _successMessage = null;
+                            });
+                          },
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Password field
+                        const Text(
+                          'Password',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          onFieldSubmitted: (_) {
+                            if (!_isLoading) {
+                              _handleLogin();
+                            }
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Enter your password',
+                            prefixIcon: const Icon(Icons.lock_outlined),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
                               ),
-                            ],
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
                           ),
+                          validator: _validatePassword,
+                          onChanged: (_) {
+                            setState(() {
+                              _errorMessage = null;
+                              _successMessage = null;
+                            });
+                          },
                         ),
-                      ],
-                      
-                      if (_errorMessage != null) ...[
+
                         const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            border: Border.all(color: Colors.red.shade200),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.error, color: Colors.red.shade800),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage!,
-                                  style: TextStyle(color: Colors.red.shade800),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Sign up link
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Don't have an account? ",
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const SignupScreen(),
+
+                        // Forgot password
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Password reset coming soon'),
                                 ),
                               );
                             },
-                            child: Text(
-                              'Sign Up',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                                decoration: TextDecoration.underline,
+                            child: const Text('Forgot Password?'),
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Login button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _handleLogin,
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                            ),
+                            child: _isLoading
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Logging in...',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : const Text(
+                                    'Login',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                        ),
+
+                        // Message Display
+                        if (_successMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              border: Border.all(color: Colors.green.shade200),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green.shade800,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _successMessage!,
+                                    style: TextStyle(
+                                      color: Colors.green.shade800,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ],
+
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              border: Border.all(color: Colors.red.shade200),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.error, color: Colors.red.shade800),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: TextStyle(
+                                      color: Colors.red.shade800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        // Sign up link
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Don't have an account? ",
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const SignupScreen(),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                'Sign Up',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 ),
               ],
             ),

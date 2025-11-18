@@ -9,10 +9,8 @@ class MonthlyReportsScreen extends StatefulWidget {
   State<MonthlyReportsScreen> createState() => _MonthlyReportsScreenState();
 }
 
-class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
-    with TickerProviderStateMixin {
+class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
   final ApiService _apiService = ApiService();
-  TabController? _tabController;
 
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _tasks = [];
@@ -23,56 +21,74 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
   String _selectedDept = 'All Departments';
   String _searchQuery = '';
 
-  // Employee metrics cache
   Map<String, Map<String, dynamic>> _employeeMetrics = {};
+
+  List<int> get _years {
+    final currentYear = DateTime.now().year;
+    return List.generate(6, (i) => currentYear - 3 + i);
+  }
+
+  List<String> get _departments {
+    final departments = _employees
+        .map((e) => e['department']?.toString() ?? 'General')
+        .toSet()
+        .toList();
+    departments.sort();
+    return ['All Departments', ...departments];
+  }
+
+  List<Map<String, dynamic>> get _filteredEmployees {
+    return _employees.where((employee) {
+      final matchesDept =
+          _selectedDept == 'All Departments' ||
+          employee['department'] == _selectedDept;
+      final matchesSearch =
+          _searchQuery.isEmpty ||
+          (employee['fullname'] ?? employee['name'] ?? '')
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
+          (employee['email_id'] ?? employee['email'] ?? '')
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
+          (employee['designation'] ?? employee['role'] ?? '')
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase());
+      return matchesDept && matchesSearch;
+    }).toList();
+  }
 
   @override
   void initState() {
     super.initState();
-    _initializeTabController();
     _fetchData();
-  }
-
-  void _initializeTabController() {
-    _tabController?.dispose();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController?.dispose();
-    super.dispose();
   }
 
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-
     try {
       // Fetch employees
       final employeesResponse = await _apiService.get('/accounts/employees/');
-      debugPrint('Employees Response: $employeesResponse');
       if (employeesResponse['success'] == true) {
         final data = employeesResponse['data'];
         if (data is List) {
-          _employees = data.whereType<Map<String, dynamic>>().toList();
-        } else if (data is Map && data['employees'] is List) {
-          _employees = (data['employees'] as List)
-              .whereType<Map<String, dynamic>>()
-              .toList();
+          _employees = List<Map<String, dynamic>>.from(data);
+        } else if (data is Map &&
+            data['employees'] != null &&
+            data['employees'] is List) {
+          _employees = List<Map<String, dynamic>>.from(data['employees']);
         }
       }
 
       // Fetch tasks
       final tasksResponse = await _apiService.get('/accounts/list_tasks/');
-      debugPrint('Tasks Response: $tasksResponse');
       if (tasksResponse['success'] == true) {
-        final tasksData = tasksResponse['data'];
-        if (tasksData is List) {
-          _tasks = tasksData.whereType<Map<String, dynamic>>().toList();
-        } else if (tasksData is Map && tasksData['tasks'] is List) {
-          _tasks = (tasksData['tasks'] as List)
-              .whereType<Map<String, dynamic>>()
-              .toList();
+        final data = tasksResponse['data'];
+        if (data is List) {
+          _tasks = List<Map<String, dynamic>>.from(data);
+        } else if (data is Map &&
+            data['tasks'] != null &&
+            data['tasks'] is List) {
+          _tasks = List<Map<String, dynamic>>.from(data['tasks']);
         }
       }
 
@@ -80,33 +96,22 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
       final attendanceResponse = await _apiService.get(
         '/accounts/list_attendance/',
       );
-      debugPrint('Attendance Response: $attendanceResponse');
       if (attendanceResponse['success'] == true) {
-        final attendanceData = attendanceResponse['data'];
-        if (attendanceData is List) {
-          _attendance = attendanceData
-              .whereType<Map<String, dynamic>>()
-              .toList();
-        } else if (attendanceData is Map &&
-            attendanceData['attendance'] is List) {
-          _attendance = (attendanceData['attendance'] as List)
-              .whereType<Map<String, dynamic>>()
-              .toList();
+        final data = attendanceResponse['data'];
+        if (data is List) {
+          _attendance = List<Map<String, dynamic>>.from(data);
+        } else if (data is Map &&
+            data['attendance'] != null &&
+            data['attendance'] is List) {
+          _attendance = List<Map<String, dynamic>>.from(data['attendance']);
         }
       }
 
-      // Compute employee metrics
       _computeEmployeeMetrics();
-
-      debugPrint(
-        'Loaded ${_employees.length} employees, ${_tasks.length} tasks, ${_attendance.length} attendance records',
-      );
     } catch (e) {
       debugPrint('Error fetching data: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() => _isLoading = false);
     }
   }
 
@@ -231,7 +236,34 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
           }
         }
 
-        // 3) minutes → convert
+        // 3) worked_hours, hours, total_minutes, total_seconds
+        if (att['worked_hours'] is num) {
+          totalHours += (att['worked_hours'] as num).toDouble();
+          debugPrint('  Attendance worked_hours(num): ${att['worked_hours']}');
+          continue;
+        }
+        if (att['worked_hours'] is String) {
+          final parsed = double.tryParse(att['worked_hours']);
+          if (parsed != null) {
+            totalHours += parsed;
+            debugPrint('  Attendance worked_hours(string): $parsed');
+            continue;
+          }
+        }
+        if (att['hours'] is num) {
+          totalHours += (att['hours'] as num).toDouble();
+          debugPrint('  Attendance hours(num): ${att['hours']}');
+          continue;
+        }
+        if (att['hours'] is String) {
+          final parsed = double.tryParse(att['hours']);
+          if (parsed != null) {
+            totalHours += parsed;
+            debugPrint('  Attendance hours(string): $parsed');
+            continue;
+          }
+        }
+
         if (att['total_minutes'] != null) {
           final mins = (att['total_minutes'] as num).toDouble();
           totalHours += mins / 60;
@@ -239,7 +271,6 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
           continue;
         }
 
-        // 4) seconds → convert
         if (att['total_seconds'] != null) {
           final secs = (att['total_seconds'] as num).toDouble();
           totalHours += secs / 3600;
@@ -247,7 +278,6 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
           continue;
         }
 
-        // 5) hours map → hrs + mins
         if (att['hours'] is Map) {
           final map = att['hours'] as Map<String, dynamic>;
           final h = ((map['hrs'] ?? 0) as num).toDouble();
@@ -257,7 +287,61 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
           continue;
         }
 
-        // 6) Unknown format
+        // Fallback: derive hours from check_in/check_out
+        final checkInRaw = att['check_in']?.toString();
+        final checkOutRaw = att['check_out']?.toString();
+        if (checkInRaw != null &&
+            checkOutRaw != null &&
+            checkInRaw.isNotEmpty &&
+            checkOutRaw.isNotEmpty) {
+          try {
+            // Handle formats like "10:09:19", "10:09:19.558605", "09:47:46.961135"
+            final checkInTime = checkInRaw
+                .split('.')
+                .first; // Remove milliseconds
+            final checkOutTime = checkOutRaw
+                .split('.')
+                .first; // Remove milliseconds
+
+            final inParts = checkInTime.split(':').map(int.parse).toList();
+            final outParts = checkOutTime.split(':').map(int.parse).toList();
+
+            if (inParts.length >= 2 && outParts.length >= 2) {
+              final inMinutes = inParts[0] * 60 + inParts[1];
+              final outMinutes = outParts[0] * 60 + outParts[1];
+
+              double diffMinutes = (outMinutes - inMinutes).toDouble();
+              if (diffMinutes < 0) diffMinutes += 24 * 60; // handle overnight
+
+              final diffHours = diffMinutes / 60.0;
+
+              // Only accept reasonable work hours (0.5 to 16 hours)
+              if (diffHours >= 0.5 && diffHours <= 16) {
+                totalHours += diffHours;
+                debugPrint(
+                  '  ✓ Attendance hours from check_in/out: $diffHours',
+                );
+              } else {
+                debugPrint(
+                  '  ⚠ Invalid work hours: $diffHours (check_in: $checkInTime, check_out: $checkOutTime)',
+                );
+              }
+            } else {
+              debugPrint(
+                '  ⚠ Malformed time format - in: $checkInRaw, out: $checkOutRaw',
+              );
+            }
+          } catch (e) {
+            debugPrint('  ⚠ ERROR parsing check_in/out times: $e');
+            debugPrint('  Raw in: $checkInRaw, out: $checkOutRaw');
+          }
+        } else {
+          debugPrint(
+            '  ⚠ Missing check_in/check_out times in attendance record',
+          );
+        }
+
+        // If no method worked, log the unknown format
         debugPrint('⚠️ UNKNOWN ATTENDANCE FORMAT: $att');
       }
       debugPrint('  Total hours for month: $totalHours');
@@ -270,7 +354,6 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
           try {
             String d2 = date.toString().replaceFirst(' ', 'T');
             final dateTime = DateTime.parse(d2);
-            // 1 = Monday, 7 = Sunday
             if (dateTime.weekday != 7) {
               workingDays++;
             }
@@ -315,424 +398,16 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
     }
   }
 
-  List<String> get _departments {
-    final departments = _employees
-        .map((e) => e['department']?.toString() ?? 'General')
-        .toSet()
-        .toList();
-    departments.sort();
-    return ['All Departments', ...departments];
-  }
-
-  List<Map<String, dynamic>> get _filteredEmployees {
-    return _employees.where((employee) {
-      final matchesDept =
-          _selectedDept == 'All Departments' ||
-          employee['department'] == _selectedDept;
-      final matchesSearch =
-          _searchQuery.isEmpty ||
-          (employee['fullname'] ?? employee['name'] ?? '')
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()) ||
-          (employee['email_id'] ?? employee['email'] ?? '')
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()) ||
-          (employee['designation'] ?? employee['role'] ?? '')
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase());
-
-      return matchesDept && matchesSearch;
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return DashboardLayout(role: 'ceo', child: _buildReportsContent());
+    return DashboardLayout(role: 'ceo', child: _buildContent());
   }
 
-  Widget _buildModernHeader() {
-    final months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF667eea),
-            const Color(0xFF764ba2),
-            const Color(0xFF6B73FF),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.analytics_outlined,
-                      size: 32,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Monthly Reports',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '${_employees.length} employees • ${months[_selectedMonth]} $_selectedYear',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: IconButton(
-                      onPressed: _fetchData,
-                      icon: const Icon(
-                        Icons.refresh_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      tooltip: 'Refresh Data',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: TabBar(
-                controller: _tabController!,
-                indicator: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                labelColor: const Color(0xFF667eea),
-                unselectedLabelColor: Colors.white.withOpacity(0.8),
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-                indicatorSize: TabBarIndicatorSize.tab,
-                dividerColor: Colors.transparent,
-                tabs: const [
-                  Tab(text: 'Overview'),
-                  Tab(text: 'Team Reports'),
-                  Tab(text: 'Analytics'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReportsContent() {
+  Widget _buildContent() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          const Text(
-            'Team Performance Dashboard',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${_employees.length} employees loaded • Tech team attendance and task tracking',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 20),
-
-          // Filters and Search
-          _buildAdvancedFilters(),
-
-          const SizedBox(height: 16),
-
-          // Selected Period Display
-          _buildPeriodDisplay(),
-
-          const SizedBox(height: 20),
-
-          // Employee Cards Grid
-          _buildEmployeeCardsGrid(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimpleStatCard(String title, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Icon(icon, color: Colors.grey.shade600, size: 16),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimpleFilters() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Filter Employees',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Search employees...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              isDense: true,
-            ),
-            onChanged: (value) => setState(() => _searchQuery = value),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: _selectedDept,
-            decoration: InputDecoration(
-              labelText: 'Department',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              isDense: true,
-            ),
-            items: _departments
-                .map(
-                  (dept) => DropdownMenuItem(
-                    value: dept,
-                    child: Text(dept, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) => setState(() => _selectedDept = value!),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmployeeSection() {
-    if (_filteredEmployees.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(40),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200, width: 1),
-        ),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              Text(
-                'No employees found',
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Employee List (${_filteredEmployees.length})',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _filteredEmployees.length,
-            separatorBuilder: (context, index) =>
-                Divider(color: Colors.grey.shade200, height: 1),
-            itemBuilder: (context, index) {
-              final employee = _filteredEmployees[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.grey.shade200,
-                  child: Text(
-                    (employee['fullname'] ?? employee['name'] ?? 'U')[0]
-                        .toUpperCase(),
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                ),
-                title: Text(
-                  employee['fullname'] ?? employee['name'] ?? 'Unknown',
-                ),
-                subtitle: Text(employee['department'] ?? 'No Department'),
-                trailing: Text(employee['designation'] ?? 'Employee'),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAdvancedFilters() {
     final months = [
       'January',
       'February',
@@ -748,195 +423,244 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
       'December',
     ];
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-      ),
-      child: Column(
-        children: [
-          // Search Bar
-          TextField(
-            decoration: InputDecoration(
-              hintText:
-                  'Search employees by name, position, department, or email...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              isDense: true,
-            ),
-            onChanged: (value) => setState(() => _searchQuery = value),
-          ),
-          const SizedBox(height: 12),
-
-          // Filters Column
-          Column(
-            children: [
-              // Department Filter
-              DropdownButtonFormField<String>(
-                value: _selectedDept,
-                decoration: InputDecoration(
-                  labelText: 'Department',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Header
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Team Performance Dashboard',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_employees.length} employees loaded • attendance and task tracking',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                    ],
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  isDense: true,
                 ),
-                items: _departments
-                    .map(
-                      (dept) => DropdownMenuItem(
-                        value: dept,
-                        child: Text(dept, overflow: TextOverflow.ellipsis),
+                IconButton(
+                  onPressed: _fetchData,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Filters Row (Now scrollable)
+            SizedBox(
+              height: 80,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Search
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 300),
+                      child: SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.4,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search employees...',
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          onChanged: (value) =>
+                              setState(() => _searchQuery = value),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Department Filter
+                    SizedBox(
+                      width: 200,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedDept,
+                        decoration: InputDecoration(
+                          labelText: 'Department',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                        ),
+                        items: _departments
+                            .map(
+                              (dept) => DropdownMenuItem(
+                                value: dept,
+                                child: Text(
+                                  dept,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) =>
+                            setState(() => _selectedDept = value!),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Month
+                    SizedBox(
+                      width: 140,
+                      child: DropdownButtonFormField<int>(
+                        value: _selectedMonth,
+                        decoration: InputDecoration(
+                          labelText: 'Month',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                        ),
+                        items: List.generate(
+                          12,
+                          (index) => DropdownMenuItem(
+                            value: index,
+                            child: Text(months[index]),
+                          ),
+                        ),
+                        onChanged: (value) =>
+                            setState(() => _selectedMonth = value!),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Year
+                    SizedBox(
+                      width: 100,
+                      child: DropdownButtonFormField<int>(
+                        value: _selectedYear,
+                        decoration: InputDecoration(
+                          labelText: 'Year',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                        ),
+                        items: _years
+                            .map(
+                              (year) => DropdownMenuItem(
+                                value: year,
+                                child: Text('$year'),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) =>
+                            setState(() => _selectedYear = value!),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Period Display
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today, color: Colors.blue),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Viewing data for ${months[_selectedMonth]} $_selectedYear',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                      Text(
+                        '${_filteredEmployees.length} employees found${_selectedDept != 'All Departments' ? ' in $_selectedDept' : ''}${_searchQuery.isNotEmpty ? ' matching "$_searchQuery"' : ''}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Employee Cards List
+            Expanded(
+              child: _filteredEmployees.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off, size: 64, color: Colors.grey),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No employees found',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                          Text(
+                            _searchQuery.isNotEmpty
+                                ? 'No employees match "$_searchQuery" in $_selectedDept'
+                                : 'No employees in $_selectedDept',
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
                       ),
                     )
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedDept = value!),
-              ),
-              const SizedBox(height: 12),
-
-              // Month Selector
-              DropdownButtonFormField<int>(
-                value: _selectedMonth,
-                decoration: InputDecoration(
-                  labelText: 'Month',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  isDense: true,
-                ),
-                items: List.generate(
-                  12,
-                  (index) => DropdownMenuItem(
-                    value: index,
-                    child: Text(months[index]),
-                  ),
-                ),
-                onChanged: (value) => setState(() => _selectedMonth = value!),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPeriodDisplay() {
-    final months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Viewing data for ${months[_selectedMonth]} ${DateTime.now().year}',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.blue.shade900,
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredEmployees.length,
+                      itemBuilder: (context, index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildEmployeeCard(_filteredEmployees[index]),
+                      ),
+                    ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${_filteredEmployees.length} employees found${_selectedDept != 'All Departments' ? ' in $_selectedDept' : ''}${_searchQuery.isNotEmpty ? ' matching "$_searchQuery"' : ''}',
-            style: TextStyle(fontSize: 14, color: Colors.blue.shade700),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildEmployeeCardsGrid() {
-    if (_filteredEmployees.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(40),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200, width: 1),
-        ),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              Text(
-                'No employees found',
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-              ),
-              Text(
-                _searchQuery.isNotEmpty
-                    ? 'No employees match "$_searchQuery" in $_selectedDept'
-                    : 'No employees in $_selectedDept',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _filteredEmployees.length,
-      itemBuilder: (context, index) {
-        final employee = _filteredEmployees[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildEmployeePerformanceCard(employee),
-        );
-      },
-    );
-  }
-
-  Widget _buildEmployeePerformanceCard(Map<String, dynamic> employee) {
-    final email = (employee['email'] ?? employee['email_id'] ?? '')
+  Widget _buildEmployeeCard(Map<String, dynamic> employee) {
+    final email = (employee['email_id'] ?? employee['email'] ?? '')
         .toString()
         .toLowerCase();
     final metrics =
         _employeeMetrics[email] ??
-        _employeeMetrics[(employee['email'] ?? '')
-            .toString()
-            .toLowerCase()
-            .trim()] ??
-        _employeeMetrics[(employee['email_id'] ?? '')
-            .toString()
-            .toLowerCase()
-            .trim()] ??
         {
           'completedTasks': 0,
           'pendingTasks': 0,
@@ -949,21 +673,13 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
           'totalDaysWorked': 0,
         };
 
-    debugPrint(
-      'CARD LOAD for ${employee['email'] ?? employee['email_id']} → metrics=$metrics',
-    );
     final completedTasks = metrics['completedTasks'] as int;
     final pendingTasks = metrics['pendingTasks'] as int? ?? 0;
     final inProgressTasks = metrics['inProgressTasks'] as int? ?? 0;
     final totalTasks = metrics['totalTasks'] as int;
     final completionScore = metrics['completionScore'] as int;
     final totalHours = (metrics['totalHours'] as num).toDouble();
-    final workingDays = metrics['workingDays'] as int;
-    final sundaysWorked = metrics['sundaysWorked'] as int;
     final totalDaysWorked = metrics['totalDaysWorked'] as int;
-    debugPrint(
-      'TASK METRICS → email=$email completed=$completedTasks pending=$pendingTasks inProgress=$inProgressTasks total=$totalTasks score=$completionScore hours=$totalHours days=$totalDaysWorked workingDays=$workingDays sundays=$sundaysWorked',
-    );
 
     return GestureDetector(
       onTap: () => _showEmployeeReport(employee),
@@ -1119,8 +835,6 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
                   ),
                 ),
               ],
-
-              // (Work Days / Sundays section removed)
             ],
           ),
         ),
@@ -1132,37 +846,39 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
     String label,
     String value,
     Color bgColor,
-    Color textColor,
-  ) {
+    Color textColor, [
+    double? width,
+    double? height,
+  ]) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      width: width,
+      height: height,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 10,
               color: textColor,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 2),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
               color: Colors.black87,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -1201,272 +917,295 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
   }
 
   void _showEmployeeReport(Map<String, dynamic> employee) {
-    final email = (employee['email'] ?? employee['email_id'] ?? '')
+    final email = (employee['email_id'] ?? employee['email'] ?? '')
         .toString()
-        .toLowerCase();
-    final metrics = _employeeMetrics[email] ?? {};
+        .toLowerCase()
+        .trim();
 
+    final metrics = _employeeMetrics[email] ?? {};
     final completedTasks = metrics['completedTasks'] as int? ?? 0;
     final pendingTasks = metrics['pendingTasks'] as int? ?? 0;
     final inProgressTasks = metrics['inProgressTasks'] as int? ?? 0;
     final totalTasks = metrics['totalTasks'] as int? ?? 0;
     final completionScore = metrics['completionScore'] as int? ?? 0;
     final totalHours = (metrics['totalHours'] as num?)?.toDouble() ?? 0.0;
-    final workingDays = metrics['workingDays'] as int? ?? 0;
-    final sundaysWorked = metrics['sundaysWorked'] as int? ?? 0;
     final totalDaysWorked = metrics['totalDaysWorked'] as int? ?? 0;
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.9,
-          height: MediaQuery.of(context).size.height * 0.8,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Employee Performance Report',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: MediaQuery.of(context).size.height * 0.9,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.topRight,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Employee Info
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.blue.shade100,
-                      backgroundImage:
-                          (employee['profile_picture'] != null &&
-                              employee['profile_picture'].toString().isNotEmpty)
-                          ? NetworkImage(employee['profile_picture'])
-                          : null,
-                      child:
-                          (employee['profile_picture'] == null ||
-                              employee['profile_picture'].toString().isEmpty)
-                          ? Text(
-                              (employee['fullname'] ??
-                                      employee['name'] ??
-                                      'U')[0]
-                                  .toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.blue.shade700,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            employee['fullname'] ??
-                                employee['name'] ??
-                                'Unknown',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            employee['designation'] ?? 'Employee',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          Text(
-                            employee['department'] ?? 'No Department',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Performance Metrics
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      const Text(
-                        'Performance Metrics',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                      Expanded(
+                        child: Text(
+                          'Employee Performance Report',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-
-                      // Metrics Grid
-                      GridView.count(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildMetricCard(
-                            'Tasks Completed',
-                            '$completedTasks/$totalTasks',
-                            Colors.green,
-                          ),
-                          _buildMetricCard(
-                            'Completion Score',
-                            '$completionScore%',
-                            Colors.purple,
-                          ),
-                          _buildMetricCard(
-                            'Total Hours',
-                            '${totalHours.toStringAsFixed(1)}h',
-                            Colors.blue,
-                          ),
-                          _buildMetricCard(
-                            'Days Worked',
-                            '$totalDaysWorked',
-                            Colors.orange,
-                          ),
-                        ],
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        tooltip: 'Close',
                       ),
-                      const SizedBox(height: 20),
-
-                      const Text(
-                        'Task Breakdown',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Task Status Breakdown
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildTaskStatusDetail(
-                              'Completed',
-                              completedTasks,
-                              Colors.green,
-                            ),
-                            _buildTaskStatusDetail(
-                              'In Progress',
-                              inProgressTasks,
-                              Colors.orange,
-                            ),
-                            _buildTaskStatusDetail(
-                              'Pending',
-                              pendingTasks,
-                              Colors.red,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // (Attendance Summary section removed)
                     ],
                   ),
                 ),
-              ),
 
-              // Close Button
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Employee Info
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 30,
+                                backgroundColor: Colors.blue.shade100,
+                                backgroundImage:
+                                    (employee['profile_picture'] != null &&
+                                        employee['profile_picture']
+                                            .toString()
+                                            .isNotEmpty)
+                                    ? NetworkImage(employee['profile_picture'])
+                                    : null,
+                                child:
+                                    (employee['profile_picture'] == null ||
+                                        employee['profile_picture']
+                                            .toString()
+                                            .isEmpty)
+                                    ? Text(
+                                        (employee['fullname'] ??
+                                                employee['name'] ??
+                                                'U')[0]
+                                            .toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      employee['fullname'] ??
+                                          employee['name'] ??
+                                          'Unknown',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      employee['designation'] ?? 'Employee',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    Text(
+                                      employee['department'] ?? 'No Department',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Metrics Grid
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: GridView.count(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 1.5,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _buildMetricCard(
+                                'Tasks Completed',
+                                '$completedTasks/$totalTasks',
+                                Colors.green,
+                              ),
+                              _buildMetricCard(
+                                'Completion Score',
+                                '$completionScore%',
+                                Colors.purple,
+                              ),
+                              _buildMetricCard(
+                                'Total Hours',
+                                '${totalHours.toStringAsFixed(1)}h',
+                                Colors.blue,
+                              ),
+                              _buildMetricCard(
+                                'Days Worked',
+                                '$totalDaysWorked',
+                                Colors.orange,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Task Breakdown
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Task Breakdown',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildTaskStatusDetail(
+                                    'Completed',
+                                    completedTasks,
+                                    Colors.green,
+                                  ),
+                                  _buildTaskStatusDetail(
+                                    'In Progress',
+                                    inProgressTasks,
+                                    Colors.orange,
+                                  ),
+                                  _buildTaskStatusDetail(
+                                    'Pending',
+                                    pendingTasks,
+                                    Colors.red,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Simple message for lack of records
+                        Center(
+                          child: Text(
+                            'Additional task and attendance details coming soon...',
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: const Text(
-                    'Close Report',
-                    style: TextStyle(color: Colors.white),
+                ),
+
+                // Footer
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF667eea),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Close Report',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTaskStatusDetail(String label, int count, Color color) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade700,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: color,
+              ],
             ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -1504,419 +1243,35 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen>
     );
   }
 
-  Widget _buildDepartmentSummary() {
-    final deptCounts = <String, int>{};
-    for (final emp in _employees) {
-      final dept = emp['department']?.toString() ?? 'General';
-      deptCounts[dept] = (deptCounts[dept] ?? 0) + 1;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Department Summary',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          ...deptCounts.entries.map(
-            (entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(entry.key),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${entry.value}',
-                      style: TextStyle(
-                        color: Colors.blue.shade700,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilters() {
-    final months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-
+  Widget _buildTaskStatusDetail(String label, int count, Color color) {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        TextField(
-          decoration: InputDecoration(
-            hintText: 'Search employees...',
-            prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: Colors.white,
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
           ),
-          onChanged: (value) => setState(() => _searchQuery = value),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: DropdownButtonFormField<String>(
-                value: _selectedDept,
-                decoration: InputDecoration(
-                  labelText: 'Department',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                ),
-                items: _departments
-                    .map(
-                      (dept) => DropdownMenuItem(
-                        value: dept,
-                        child: Text(
-                          dept,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedDept = value!),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              flex: 2,
-              child: DropdownButtonFormField<int>(
-                value: _selectedMonth,
-                decoration: InputDecoration(
-                  labelText: 'Month',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                ),
-                items: List.generate(
-                  12,
-                  (index) => DropdownMenuItem(
-                    value: index,
-                    child: Text(
-                      months[index],
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ),
-                onChanged: (value) => setState(() => _selectedMonth = value!),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            'No employees found',
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(6),
           ),
-          Text(
-            _searchQuery.isNotEmpty
-                ? 'No employees match "$_searchQuery"'
-                : 'No employees in $_selectedDept',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmployeeList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _filteredEmployees.length,
-      itemBuilder: (context, index) {
-        final employee = _filteredEmployees[index];
-        return _buildEmployeeCard(employee);
-      },
-    );
-  }
-
-  Widget _buildEmployeeCard(Map<String, dynamic> employee) {
-    final colors = [
-      const Color(0xFF667eea),
-      const Color(0xFF764ba2),
-      const Color(0xFF6B73FF),
-      const Color(0xFF9C27B0),
-      const Color(0xFF00BCD4),
-      const Color(0xFF4CAF50),
-    ];
-    final cardColor = colors[employee.hashCode % colors.length];
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, cardColor.withOpacity(0.02)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: cardColor.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-            spreadRadius: 0,
-          ),
-        ],
-        border: Border.all(color: cardColor.withOpacity(0.1), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            // Avatar Section
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [cardColor.withOpacity(0.8), cardColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: cardColor.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  (employee['fullname'] ?? employee['name'] ?? 'U')[0]
-                      .toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(width: 16),
-
-            // Employee Info Section
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    employee['fullname'] ?? employee['name'] ?? 'Unknown',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                      letterSpacing: -0.3,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cardColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: cardColor.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      employee['designation'] ?? employee['role'] ?? 'Employee',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: cardColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.business_rounded,
-                        size: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          employee['department'] ?? 'No Department',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(width: 12),
-
-            // Metrics Section
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildCompactMetric(
-                      '22',
-                      'Days',
-                      Icons.calendar_today_rounded,
-                      const Color(0xFF4CAF50),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _buildCompactMetric(
-                      '8.2',
-                      'Hours',
-                      Icons.schedule_rounded,
-                      const Color(0xFF2196F3),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _buildCompactMetric(
-                      '94%',
-                      'Score',
-                      Icons.trending_up_rounded,
-                      const Color(0xFF9C27B0),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompactMetric(
-    String value,
-    String label,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2), width: 1),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(height: 4),
-          Text(
-            value,
+          child: Text(
+            '$count',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
               color: color,
-              letterSpacing: -0.2,
             ),
           ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
-              color: color.withOpacity(0.8),
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

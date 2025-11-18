@@ -10,6 +10,22 @@ class ManagerMonthlyReportsScreen extends StatefulWidget {
       _ManagerMonthlyReportsScreenState();
 }
 
+class _DayAttendance {
+  final int day;
+  final double hours;
+  final bool absent;
+  final bool isSunday;
+  final bool present;
+
+  _DayAttendance({
+    required this.day,
+    required this.hours,
+    required this.absent,
+    required this.isSunday,
+    required this.present,
+  });
+}
+
 class _ManagerMonthlyReportsScreenState
     extends State<ManagerMonthlyReportsScreen> {
   final ApiService _apiService = ApiService();
@@ -91,6 +107,80 @@ class _ManagerMonthlyReportsScreenState
     }
   }
 
+  double _computeDayHours(Map<String, dynamic> att) {
+    if (att['total_hours'] is num) {
+      return (att['total_hours'] as num).toDouble();
+    }
+    if (att['total_minutes'] is num) {
+      return (att['total_minutes'] as num).toDouble() / 60.0;
+    }
+    if (att['total_seconds'] is num) {
+      return (att['total_seconds'] as num).toDouble() / 3600.0;
+    }
+
+    final checkInRaw = att['check_in']?.toString();
+    final checkOutRaw = att['check_out']?.toString();
+    if (checkInRaw != null && checkOutRaw != null &&
+        checkInRaw.isNotEmpty && checkOutRaw.isNotEmpty) {
+      try {
+        final checkInTime = checkInRaw.split('.').first;
+        final checkOutTime = checkOutRaw.split('.').first;
+        final inParts = checkInTime.split(':').map(int.parse).toList();
+        final outParts = checkOutTime.split(':').map(int.parse).toList();
+        if (inParts.length >= 2 && outParts.length >= 2) {
+          final inMinutes = inParts[0] * 60 + inParts[1];
+          final outMinutes = outParts[0] * 60 + outParts[1];
+          double diffMinutes = (outMinutes - inMinutes).toDouble();
+          if (diffMinutes < 0) diffMinutes += 24 * 60;
+          final h = diffMinutes / 60.0;
+          if (h >= 0.5 && h <= 16) return h;
+        }
+      } catch (_) {}
+    }
+    return 0;
+  }
+
+  List<_DayAttendance> _buildDayAttendanceForDialog(
+    List<Map<String, dynamic>> employeeAttendance,
+    String email,
+  ) {
+    final attendanceMap = <String, Map<String, dynamic>>{};
+    for (final rec in employeeAttendance) {
+      final dateStr = rec['date']?.toString();
+      if (dateStr == null || dateStr.isEmpty) continue;
+      try {
+        final d = DateTime.parse(dateStr.replaceFirst(' ', 'T'));
+        final key =
+            '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        attendanceMap[key] = rec;
+      } catch (_) {}
+    }
+
+    final result = <_DayAttendance>[];
+    final daysInMonth = DateTime(_selectedYear, _selectedMonth + 2, 0).day;
+
+    for (int day = 1; day <= daysInMonth; day++) {
+      final date = DateTime(_selectedYear, _selectedMonth + 1, day);
+      final key =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+      final rec = attendanceMap[key];
+      final isSunday = date.weekday == DateTime.sunday;
+      final hours = rec != null ? _computeDayHours(rec) : 0.0;
+
+      result.add(
+        _DayAttendance(
+          day: day,
+          hours: hours,
+          absent: false, // hook absences here later
+          isSunday: isSunday,
+          present: rec != null,
+        ),
+      );
+    }
+
+    return result;
+  }
+
   void _computeEmployeeMetrics() {
     _employeeMetrics.clear();
 
@@ -108,7 +198,7 @@ class _ManagerMonthlyReportsScreenState
     }).toList();
 
     final filteredAttendance = _attendance.where((att) {
-      final dateStr = att['date'];
+      final dateStr = att['date'] ?? att['attendance_date'];
       if (dateStr == null) return false;
       try {
         String d2 = dateStr.toString().replaceFirst(' ', 'T');
@@ -174,6 +264,7 @@ class _ManagerMonthlyReportsScreenState
       double totalHours = 0;
 
       for (final att in employeeAttendance) {
+        // 1) Prefer explicit total_hours/total_* fields if present
         if (att['total_hours'] is num) {
           totalHours += (att['total_hours'] as num).toDouble();
           continue;
@@ -181,6 +272,30 @@ class _ManagerMonthlyReportsScreenState
 
         if (att['total_hours'] is String) {
           final parsed = double.tryParse(att['total_hours']);
+          if (parsed != null) {
+            totalHours += parsed;
+            continue;
+          }
+        }
+
+        // Other common hour fields from API (worked_hours / hours)
+        if (att['worked_hours'] is num) {
+          totalHours += (att['worked_hours'] as num).toDouble();
+          continue;
+        }
+        if (att['worked_hours'] is String) {
+          final parsed = double.tryParse(att['worked_hours']);
+          if (parsed != null) {
+            totalHours += parsed;
+            continue;
+          }
+        }
+        if (att['hours'] is num) {
+          totalHours += (att['hours'] as num).toDouble();
+          continue;
+        }
+        if (att['hours'] is String) {
+          final parsed = double.tryParse(att['hours']);
           if (parsed != null) {
             totalHours += parsed;
             continue;
@@ -206,12 +321,39 @@ class _ManagerMonthlyReportsScreenState
           totalHours += h + (m / 60);
           continue;
         }
+
+        // 2) Fallback: derive hours from check_in/check_out like web dashboard
+        final checkInRaw = (att['check_in'] ?? att['checkIn'])?.toString();
+        final checkOutRaw = (att['check_out'] ?? att['checkOut'])?.toString();
+        if (checkInRaw != null && checkOutRaw != null &&
+            checkInRaw.isNotEmpty && checkOutRaw.isNotEmpty) {
+          try {
+            // Strip fractional seconds if present (HH:MM:SS.mmm -> HH:MM:SS)
+            final checkInTime = checkInRaw.split('.').first;
+            final checkOutTime = checkOutRaw.split('.').first;
+            final inParts = checkInTime.split(':').map(int.parse).toList();
+            final outParts = checkOutTime.split(':').map(int.parse).toList();
+            if (inParts.length >= 2 && outParts.length >= 2) {
+              final inMinutes = inParts[0] * 60 + inParts[1] + (inParts.length > 2 ? inParts[2] / 60.0 : 0);
+              final outMinutes = outParts[0] * 60 + outParts[1] + (outParts.length > 2 ? outParts[2] / 60.0 : 0);
+              double diffMinutes = (outMinutes - inMinutes).toDouble();
+              // handle overnight
+              if (diffMinutes < 0) diffMinutes += 24 * 60;
+              final diffHours = diffMinutes / 60.0;
+              if (diffHours >= 0.5 && diffHours <= 16) {
+                totalHours += diffHours;
+              }
+            }
+          } catch (_) {
+            // ignore bad formats
+          }
+        }
       }
 
       // Count working days (excluding Sundays)
       int workingDays = 0;
       for (final att in employeeAttendance) {
-        final date = att['date'];
+        final date = att['date'] ?? att['attendance_date'];
         if (date != null) {
           try {
             String d2 = date.toString().replaceFirst(' ', 'T');
@@ -228,7 +370,7 @@ class _ManagerMonthlyReportsScreenState
       // Count Sundays worked
       int sundaysWorked = 0;
       for (final att in employeeAttendance) {
-        final date = att['date'];
+        final date = att['date'] ?? att['attendance_date'];
         if (date != null) {
           try {
             String d3 = date.toString().replaceFirst(' ', 'T');
@@ -800,7 +942,8 @@ class _ManagerMonthlyReportsScreenState
   void _showEmployeeReport(Map<String, dynamic> employee) {
     final email = (employee['email'] ?? employee['email_id'] ?? '')
         .toString()
-        .toLowerCase();
+        .toLowerCase()
+        .trim();
     final metrics = _employeeMetrics[email] ?? {};
 
     final completedTasks = metrics['completedTasks'] as int? ?? 0;
@@ -810,6 +953,49 @@ class _ManagerMonthlyReportsScreenState
     final completionScore = metrics['completionScore'] as int? ?? 0;
     final totalHours = (metrics['totalHours'] as num?)?.toDouble() ?? 0.0;
     final totalDaysWorked = metrics['totalDaysWorked'] as int? ?? 0;
+
+    // Build rich data for this employee (tasks + attendance for selected month/year)
+    final List<Map<String, dynamic>> employeeTasks = _tasks.where((task) {
+      final taskEmail = (task['email'] ?? task['email_id'] ?? '')
+          .toString()
+          .toLowerCase()
+          .trim();
+      if (taskEmail != email) return false;
+      final dateStr = task['created_at'] ?? task['date'];
+      if (dateStr == null) return false;
+      try {
+        final d = DateTime.parse(dateStr.toString().replaceFirst(' ', 'T'));
+        return d.month == (_selectedMonth + 1) && d.year == _selectedYear;
+      } catch (_) {
+        return false;
+      }
+    }).toList()
+      ..sort((a, b) {
+        final da = DateTime.tryParse((a['created_at'] ?? a['date'] ?? '').toString().replaceFirst(' ', 'T'))?.millisecondsSinceEpoch ?? 0;
+        final db = DateTime.tryParse((b['created_at'] ?? b['date'] ?? '').toString().replaceFirst(' ', 'T'))?.millisecondsSinceEpoch ?? 0;
+        return db.compareTo(da);
+      });
+
+    final List<Map<String, dynamic>> employeeAttendance = _attendance.where((att) {
+      final attEmail = (att['email'] ?? att['email_id'] ?? '')
+          .toString()
+          .toLowerCase()
+          .trim();
+      if (attEmail != email) return false;
+      final dateStr = att['date'];
+      if (dateStr == null) return false;
+      try {
+        final d = DateTime.parse(dateStr.toString().replaceFirst(' ', 'T'));
+        return d.month == (_selectedMonth + 1) && d.year == _selectedYear;
+      } catch (_) {
+        return false;
+      }
+    }).toList()
+      ..sort((a, b) {
+        final da = DateTime.tryParse((a['date'] ?? '').toString().replaceFirst(' ', 'T'))?.millisecondsSinceEpoch ?? 0;
+        final db = DateTime.tryParse((b['date'] ?? '').toString().replaceFirst(' ', 'T'))?.millisecondsSinceEpoch ?? 0;
+        return da.compareTo(db);
+      });
 
     showDialog(
       context: context,
@@ -999,6 +1185,218 @@ class _ManagerMonthlyReportsScreenState
                           ],
                         ),
                       ),
+
+                      const SizedBox(height: 20),
+
+                      // Recent Tasks
+                      const Text(
+                        'Recent Tasks (this period)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (employeeTasks.isEmpty)
+                        Text(
+                          'No tasks found for this employee in the selected month.',
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                        )
+                      else
+                        Column(
+                          children: employeeTasks.take(5).map((task) {
+                            final title = (task['name'] ?? task['title'] ?? task['task_name'] ?? 'Task ${task['id']}').toString();
+                            final status = (task['status'] ?? '').toString();
+                            final rawDate = (task['completed_at'] ?? task['completed_date'] ?? task['date'] ?? task['created_at'])
+                                ?.toString();
+                            String dateLabel = '';
+                            if (rawDate != null && rawDate.isNotEmpty) {
+                              try {
+                                final d = DateTime.parse(rawDate.replaceFirst(' ', 'T'));
+                                dateLabel = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+                              } catch (_) {}
+                            }
+                            Color statusColor = Colors.grey.shade600;
+                            final s = status.toLowerCase();
+                            if (s == 'completed') statusColor = Colors.green.shade600;
+                            else if (s == 'in_progress') statusColor = Colors.orange.shade600;
+                            else if (s == 'pending') statusColor = Colors.red.shade600;
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          title,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Status: ',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                            Text(
+                                              status.isEmpty ? 'Unknown' : status,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: statusColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (dateLabel.isNotEmpty)
+                                    Text(
+                                      dateLabel,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+
+                      const SizedBox(height: 20),
+
+                      // Attendance list
+                      const Text(
+                        'Attendance (this period)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // No chart – show just the detailed list for now
+                      if (employeeAttendance.isEmpty)
+                        Text(
+                          'No attendance records found for this employee in the selected month.',
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                        )
+                      else
+                        Column(
+                          children: employeeAttendance.map((att) {
+                            final rawDate = att['date']?.toString();
+                            String dateLabel = rawDate ?? '';
+                            if (rawDate != null && rawDate.isNotEmpty) {
+                              try {
+                                final d = DateTime.parse(rawDate.replaceFirst(' ', 'T'));
+                                dateLabel = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+                              } catch (_) {}
+                            }
+
+                            // best-effort total hours display
+                            double dayHours = 0;
+                            if (att['total_hours'] is num) {
+                              dayHours = (att['total_hours'] as num).toDouble();
+                            } else if (att['total_hours'] is String) {
+                              dayHours = double.tryParse(att['total_hours']) ?? 0;
+                            } else if (att['worked_hours'] is num) {
+                              dayHours = (att['worked_hours'] as num).toDouble();
+                            } else if (att['worked_hours'] is String) {
+                              dayHours = double.tryParse(att['worked_hours']) ?? 0;
+                            } else if (att['hours'] is num) {
+                              dayHours = (att['hours'] as num).toDouble();
+                            } else if (att['hours'] is String) {
+                              dayHours = double.tryParse(att['hours']) ?? 0;
+                            } else if (att['total_minutes'] is num) {
+                              dayHours = (att['total_minutes'] as num).toDouble() / 60.0;
+                            } else if (att['total_seconds'] is num) {
+                              dayHours = (att['total_seconds'] as num).toDouble() / 3600.0;
+                            } else {
+                              // final fallback from check_in/check_out
+                              dayHours = _computeDayHours(att);
+                            }
+
+                            final checkIn = att['check_in']?.toString() ?? '';
+                            final checkOut = att['check_out']?.toString() ?? '';
+
+                            String formatTime(String t) {
+                              if (t.isEmpty) return 'N/A';
+                              final parts = t.split(':');
+                              if (parts.length < 2) return t;
+                              int h = int.tryParse(parts[0]) ?? 0;
+                              final m = parts[1];
+                              final ampm = h >= 12 ? 'PM' : 'AM';
+                              h = h % 12;
+                              if (h == 0) h = 12;
+                              return '$h:$m $ampm';
+                            }
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          dateLabel,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'In: ${formatTime(checkIn)}  •  Out: ${formatTime(checkOut)}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    '${dayHours.toStringAsFixed(1)}h',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
                     ],
                   ),
                 ),
@@ -1028,6 +1426,74 @@ class _ManagerMonthlyReportsScreenState
         ),
       ),
     );
+  }
+
+  Widget _buildAttendanceBarsForDialog(
+    List<Map<String, dynamic>> employeeAttendance,
+    String email,
+  ) {
+    final dayData = _buildDayAttendanceForDialog(employeeAttendance, email);
+    if (dayData.isEmpty) return const SizedBox.shrink();
+
+    final maxHours =
+        dayData.fold<double>(0, (m, d) => d.hours > m ? d.hours : m);
+    final safeMax = maxHours > 0 ? maxHours : 8.0;
+
+    return SizedBox(
+      height: 180,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final d in dayData)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 1.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          height: (d.hours / safeMax) * 150,
+                          decoration: BoxDecoration(
+                            color: _attendanceBarColor(d),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(3),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      d.day.toString(),
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _attendanceBarColor(_DayAttendance d) {
+    if (d.absent) return Colors.red.shade600;
+    if (d.isSunday && d.present) return Colors.orange.shade600;
+    if (d.isSunday && !d.present) return Colors.orange.shade200;
+    if (d.present) return Colors.blue.shade600;
+    return Colors.grey.shade300;
+  }
+
+  // Legacy stub to satisfy any reflection-based lookups expecting this method.
+  // The real chart is rendered by _buildAttendanceBarsForDialog.
+  Widget _buildAttendanceBars(List<Map<String, dynamic>> _) {
+    return const SizedBox.shrink();
   }
 
   Widget _buildTaskStatusDetail(String label, int count, Color color) {

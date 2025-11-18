@@ -94,20 +94,17 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       {'name': 'Profile', 'path': '/manager/profile'},
     ],
     'hr': [
-      {'name': 'Employees', 'path': '/hr/employee'},
-      {'name': 'Leaves', 'path': '/hr/leaves'},
-      {'name': 'Attendance', 'path': '/hr/attendance'},
-      {'name': 'Monthly Report', 'path': '/hr/monthly_report'},
-      {'name': 'Payroll', 'path': '/hr/payroll'},
-      {'name': 'Onboarding', 'path': '/hr/onboarding'},
-      {'name': 'Offboarding', 'path': '/hr/offboarding'},
-      {'name': 'Calendar', 'path': '/hr/calendar'},
-      {'name': 'Notice', 'path': '/hr/notice'},
-      {'name': 'Tickets', 'path': '/hr/tickets'},
-      {'name': 'Issue Documents', 'path': '/hr/documents'},
-      {'name': 'HR Careers', 'path': '/hr/careers'},
-      {'name': 'Projects', 'path': '/hr/projects'},
-      {'name': 'Profile', 'path': '/hr/profile'},
+      {'name': 'Dashboard', 'path': '/ceo/dashboard'},
+      {'name': 'Reports', 'path': '/ceo/reports'},
+      {'name': 'Employees', 'path': '/ceo/employees'},
+      {'name': 'Attendance', 'path': '/ceo/attendance'},
+      {'name': 'Monthly Report', 'path': '/ceo/monthly_report'},
+      {'name': 'Finance', 'path': '/ceo/finance'},
+      {'name': 'Projects', 'path': '/ceo/projects'},
+      {'name': 'Notice', 'path': '/ceo/notice'},
+      {'name': 'Calendar', 'path': '/ceo/calendar'},
+      {'name': 'Tickets', 'path': '/ceo/tickets'},
+      {'name': 'Profile', 'path': '/ceo/profile'},
     ],
     'employee': [
       {'name': 'Dashboard', 'path': '/employee/dashboard'},
@@ -266,7 +263,7 @@ class _DashboardLayoutState extends State<DashboardLayout> {
         screen = const ManagerAttendanceScreen();
         break;
       case '/manager/monthly_report':
-        screen = const ManagerMonthlyReportsScreen();
+        screen = const MonthlyReportsScreen();
         break;
       case '/manager/notice':
         screen = const ManagerNoticeScreen();
@@ -433,6 +430,9 @@ class _DashboardLayoutState extends State<DashboardLayout> {
                     _navigateToPage('/manager/profile');
                     break;
                   case 'ceo':
+                    _navigateToPage('/ceo/profile');
+                    break;
+                  case 'hr':
                     _navigateToPage('/ceo/profile');
                     break;
                   case 'admin':

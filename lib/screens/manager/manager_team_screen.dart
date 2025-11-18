@@ -19,15 +19,13 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _hrs = [];
   List<Map<String, dynamic>> _managers = [];
-  
+
   bool _isLoading = false;
   String _searchTerm = '';
   String _view = 'employee'; // 'employee', 'hr', 'manager'
-  
+
   Map<String, dynamic>? _docs;
   String? _selectedDoc;
-  bool _docLoading = false;
-  String _docError = '';
   List<Map<String, dynamic>> _awards = [];
 
   @override
@@ -47,24 +45,26 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
 
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final results = await Future.wait([
         _apiService.get('/accounts/employees/'),
         _apiService.get('/accounts/hrs/'),
         _apiService.get('/accounts/managers/'),
       ]);
-      
+
       if (results[0]['success']) {
         final data = results[0]['data'];
-        setState(() => _employees = List<Map<String, dynamic>>.from(data ?? []));
+        setState(
+          () => _employees = List<Map<String, dynamic>>.from(data ?? []),
+        );
       }
-      
+
       if (results[1]['success']) {
         final data = results[1]['data'];
         setState(() => _hrs = List<Map<String, dynamic>>.from(data ?? []));
       }
-      
+
       if (results[2]['success']) {
         final data = results[2]['data'];
         setState(() => _managers = List<Map<String, dynamic>>.from(data ?? []));
@@ -90,45 +90,59 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
       default:
         list = _employees;
     }
-    
+
     if (_searchTerm.isEmpty) return list;
-    
+
     final search = _searchTerm.toLowerCase();
     return list.where((emp) {
-      return (emp['fullname'] ?? '').toString().toLowerCase().contains(search) ||
+      return (emp['fullname'] ?? '').toString().toLowerCase().contains(
+            search,
+          ) ||
           (emp['email'] ?? '').toString().toLowerCase().contains(search) ||
           (emp['department'] ?? '').toString().toLowerCase().contains(search) ||
           (emp['designation'] ?? '').toString().toLowerCase().contains(search);
     }).toList();
   }
 
-  Future<void> _fetchDocuments(String email) async {
-    setState(() {
-      _docLoading = true;
-      _docError = '';
-      _docs = null;
-      _selectedDoc = null;
-    });
-    
+  Future<Map<String, dynamic>?> _fetchDocuments(String email) async {
     try {
+      // Call the raw API so we see exactly what the backend returns
       final response = await _apiService.get('/accounts/get_document/$email/');
-      if (response['success']) {
+
+      if (response['success'] == true) {
         final data = response['data'];
-        final record = data is List ? (data.isNotEmpty ? data[0] : null) : data;
-        if (record != null && record is Map && record.isNotEmpty) {
-          setState(() => _docs = Map<String, dynamic>.from(record));
+
+        // API may return a list with a single record or a single map
+        Map<String, dynamic>? record;
+        if (data is List && data.isNotEmpty) {
+          record = data.first is Map<String, dynamic>
+              ? Map<String, dynamic>.from(data.first)
+              : null;
+        } else if (data is Map<String, dynamic>) {
+          record = Map<String, dynamic>.from(data);
+        }
+
+        if (record != null && record.isNotEmpty) {
+          // Keep only non-empty string fields
+          final Map<String, dynamic> mapped = {};
+          record.forEach((key, value) {
+            if (value != null) {
+              final v = value.toString().trim();
+              if (v.isNotEmpty) {
+                mapped[key] = v;
+              }
+            }
+          });
+          return mapped.isNotEmpty ? mapped : null;
         } else {
-          setState(() => _docError = 'No documents found');
+          return null;
         }
       } else {
-        setState(() => _docError = 'No documents found');
+        return null;
       }
     } catch (e) {
-      setState(() => _docError = 'Error loading documents');
-    } finally {
-      if (mounted) {
-        setState(() => _docLoading = false);
-      }
+      print('Error fetching documents: $e');
+      return null;
     }
   }
 
@@ -143,9 +157,11 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
         } else if (data is Map && data['awards'] is List) {
           awards = List<Map<String, dynamic>>.from(data['awards'] ?? []);
         }
-        
+
         setState(() {
-          _awards = awards.where((award) => (award['email'] ?? '') == email).toList();
+          _awards = awards
+              .where((award) => (award['email'] ?? '') == email)
+              .toList();
         });
       }
     } catch (e) {
@@ -157,7 +173,6 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
   void _selectEmployee(Map<String, dynamic> emp) {
     final email = emp['email'] ?? '';
     if (email.isNotEmpty) {
-      _fetchDocuments(email);
       _fetchAwards(email);
     }
     // Show dialog
@@ -167,10 +182,24 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
       builder: (context) {
         final fullname = emp['fullname'] ?? 'N/A';
         final profilePic = emp['profile_picture'] ?? '';
-        
+
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return _buildEmployeeDetailsDialog(emp, fullname, profilePic, email, setDialogState);
+            if (_docs == null) {
+              _fetchDocuments(email).then((result) {
+                setDialogState(() => _docs = result);
+              });
+            }
+
+            return _buildEmployeeDetailsDialog(
+              emp,
+              fullname,
+              profilePic,
+              email,
+              _docs,
+              _selectedDoc,
+              setDialogState,
+            );
           },
         );
       },
@@ -206,7 +235,7 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
 
   Widget _buildDocumentViewer(String url) {
     final ext = url.split('.').last.toLowerCase();
-    
+
     if (ext == 'pdf') {
       return Container(
         height: 500,
@@ -327,8 +356,8 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.group, 
-                          size: isMobile ? 28 : 32, 
+                          Icons.group,
+                          size: isMobile ? 28 : 32,
                           color: Colors.blue[700],
                         ),
                         SizedBox(width: isMobile ? 8 : 12),
@@ -347,7 +376,9 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                     ),
                     const SizedBox(height: 8),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 0),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 8 : 0,
+                      ),
                       child: Text(
                         'Manage and view your team members, their documents, and achievements',
                         textAlign: TextAlign.center,
@@ -363,9 +394,9 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                 );
               },
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Stats Cards - Responsive layout
             LayoutBuilder(
               builder: (context, constraints) {
@@ -374,11 +405,26 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                   // Stack cards vertically on mobile
                   return Column(
                     children: [
-                      _buildStatCard('Employees', _employees.length, Icons.people, Colors.green),
+                      _buildStatCard(
+                        'Employees',
+                        _employees.length,
+                        Icons.people,
+                        Colors.green,
+                      ),
                       const SizedBox(height: 12),
-                      _buildStatCard('HR Team', _hrs.length, Icons.person, Colors.blue),
+                      _buildStatCard(
+                        'HR Team',
+                        _hrs.length,
+                        Icons.person,
+                        Colors.blue,
+                      ),
                       const SizedBox(height: 12),
-                      _buildStatCard('Managers', _managers.length, Icons.workspace_premium, Colors.purple),
+                      _buildStatCard(
+                        'Managers',
+                        _managers.length,
+                        Icons.workspace_premium,
+                        Colors.purple,
+                      ),
                     ],
                   );
                 } else {
@@ -386,24 +432,39 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                   return Row(
                     children: [
                       Expanded(
-                        child: _buildStatCard('Employees', _employees.length, Icons.people, Colors.green),
+                        child: _buildStatCard(
+                          'Employees',
+                          _employees.length,
+                          Icons.people,
+                          Colors.green,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _buildStatCard('HR Team', _hrs.length, Icons.person, Colors.blue),
+                        child: _buildStatCard(
+                          'HR Team',
+                          _hrs.length,
+                          Icons.person,
+                          Colors.blue,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _buildStatCard('Managers', _managers.length, Icons.workspace_premium, Colors.purple),
+                        child: _buildStatCard(
+                          'Managers',
+                          _managers.length,
+                          Icons.workspace_premium,
+                          Colors.purple,
+                        ),
                       ),
                     ],
                   );
                 }
               },
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Search and Tabs
             Card(
               elevation: 2,
@@ -435,26 +496,46 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                         if (isMobile) {
                           return Column(
                             children: [
-                              _buildTabButton('employee', 'Employees', Icons.people),
+                              _buildTabButton(
+                                'employee',
+                                'Employees',
+                                Icons.people,
+                              ),
                               const SizedBox(height: 8),
                               _buildTabButton('hr', 'HR Team', Icons.person),
                               const SizedBox(height: 8),
-                              _buildTabButton('manager', 'Managers', Icons.workspace_premium),
+                              _buildTabButton(
+                                'manager',
+                                'Managers',
+                                Icons.workspace_premium,
+                              ),
                             ],
                           );
                         } else {
                           return Row(
                             children: [
                               Expanded(
-                                child: _buildTabButton('employee', 'Employees', Icons.people),
+                                child: _buildTabButton(
+                                  'employee',
+                                  'Employees',
+                                  Icons.people,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _buildTabButton('hr', 'HR Team', Icons.person),
+                                child: _buildTabButton(
+                                  'hr',
+                                  'HR Team',
+                                  Icons.person,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _buildTabButton('manager', 'Managers', Icons.workspace_premium),
+                                child: _buildTabButton(
+                                  'manager',
+                                  'Managers',
+                                  Icons.workspace_premium,
+                                ),
                               ),
                             ],
                           );
@@ -465,9 +546,9 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Team Grid
             if (_isLoading)
               const Center(
@@ -480,7 +561,11 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
               Center(
                 child: Column(
                   children: [
-                    Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
+                    Icon(
+                      Icons.people_outline,
+                      size: 64,
+                      color: Colors.grey[300],
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'No $_view found',
@@ -515,153 +600,174 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                     ),
                     itemCount: _currentList.length,
                     itemBuilder: (context, index) {
-                  final emp = _currentList[index];
-                  final fullname = emp['fullname'] ?? 'N/A';
-                  final email = emp['email'] ?? '';
-                  final profilePic = emp['profile_picture'] ?? '';
-                  
-                  return InkWell(
-                    onTap: () => _selectEmployee(emp),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Card(
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
+                      final emp = _currentList[index];
+                      final fullname = emp['fullname'] ?? 'N/A';
+                      final email = emp['email'] ?? '';
+                      final profilePic = emp['profile_picture'] ?? '';
+
+                      return InkWell(
+                        onTap: () => _selectEmployee(emp),
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey[200]!),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Top section - Avatar and name
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 28,
-                                  backgroundImage: NetworkImage(
-                                    _getValidImageUrl(profilePic, fullname),
-                                  ),
-                                  onBackgroundImageError: (_, __) {},
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        fullname,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        email,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey[600],
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            
-                            const SizedBox(height: 12),
-                            
-                            // Info section - More compact
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                if (emp['department'] != null)
-                                  _buildInfoChip(Icons.business, emp['department']),
-                                if (emp['designation'] != null)
-                                  _buildInfoChip(Icons.work, emp['designation']),
-                                if (emp['phone'] != null)
-                                  _buildInfoChip(Icons.phone, emp['phone']),
-                              ],
-                            ),
-                            
-                            const SizedBox(height: 10),
-                            
-                            // Bottom section - Role badge and View button
-                            Row(
+                        child: Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[200]!),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Chip(
-                                  label: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        _view == 'hr' 
-                                            ? Icons.person 
-                                            : _view == 'manager'
+                                // Top section - Avatar and name
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 28,
+                                      backgroundImage: NetworkImage(
+                                        _getValidImageUrl(profilePic, fullname),
+                                      ),
+                                      onBackgroundImageError: (_, __) {},
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            fullname,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            email,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey[600],
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Info section - More compact
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    if (emp['department'] != null)
+                                      _buildInfoChip(
+                                        Icons.business,
+                                        emp['department'],
+                                      ),
+                                    if (emp['designation'] != null)
+                                      _buildInfoChip(
+                                        Icons.work,
+                                        emp['designation'],
+                                      ),
+                                    if (emp['phone'] != null)
+                                      _buildInfoChip(Icons.phone, emp['phone']),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // Bottom section - Role badge and View button
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Chip(
+                                      label: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _view == 'hr'
+                                                ? Icons.person
+                                                : _view == 'manager'
                                                 ? Icons.workspace_premium
                                                 : Icons.people,
-                                        size: 12,
+                                            size: 12,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _view.toUpperCase(),
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        _view.toUpperCase(),
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                    ],
-                                  ),
-                                  backgroundColor: _view == 'manager'
-                                      ? Colors.purple[100]
-                                      : _view == 'hr'
+                                      backgroundColor: _view == 'manager'
+                                          ? Colors.purple[100]
+                                          : _view == 'hr'
                                           ? Colors.blue[100]
                                           : Colors.green[100],
-                                  labelStyle: TextStyle(
-                                    color: _view == 'manager'
-                                        ? Colors.purple[800]
-                                        : _view == 'hr'
+                                      labelStyle: TextStyle(
+                                        color: _view == 'manager'
+                                            ? Colors.purple[800]
+                                            : _view == 'hr'
                                             ? Colors.blue[800]
                                             : Colors.green[800],
-                                    fontSize: 10,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                TextButton(
-                                  onPressed: () => _selectEmployee(emp),
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    minimumSize: const Size(0, 32),
-                                    backgroundColor: Colors.blue[50],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.visibility, size: 14, color: Colors.blue[700]),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'View',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.blue[700],
-                                        ),
+                                        fontSize: 10,
                                       ),
-                                    ],
-                                  ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 0,
+                                      ),
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    TextButton(
+                                      onPressed: () => _selectEmployee(emp),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        minimumSize: const Size(0, 32),
+                                        backgroundColor: Colors.blue[50],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.visibility,
+                                            size: 14,
+                                            color: Colors.blue[700],
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'View',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.blue[700],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  );
+                      );
                     },
                   );
                 },
@@ -698,7 +804,11 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.blue[600] : Colors.grey[600]),
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? Colors.blue[600] : Colors.grey[600],
+            ),
             const SizedBox(width: 4),
             Text(
               label,
@@ -743,9 +853,7 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
   Widget _buildStatCard(String title, int count, IconData icon, Color color) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -757,10 +865,7 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -787,15 +892,23 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
     );
   }
 
+  String _getHeaderText(dynamic value) {
+    final text = (value ?? '').toString().trim();
+    if (text.isEmpty) return '';
+    final lower = text.toLowerCase();
+    if (lower == 'null' || lower == 'none' || lower == 'n/a') return '';
+    return text;
+  }
 
   Widget _buildEmployeeDetailsDialog(
     Map<String, dynamic> emp,
     String fullname,
     String profilePic,
     String email,
+    Map<String, dynamic>? docs,
+    String? selectedDoc,
     StateSetter setDialogState,
   ) {
-    
     return Dialog(
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
@@ -811,14 +924,12 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
+              // Header - simple white card with black/grey content
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue[600]!, Colors.purple[600]!],
-                  ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 child: Row(
                   children: [
@@ -839,14 +950,14 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: Colors.black,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             email,
-                            style: TextStyle(color: Colors.blue[100]),
+                            style: TextStyle(color: Colors.grey[700]),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -854,35 +965,59 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                           Wrap(
                             spacing: 8,
                             children: [
-                              if (emp['department'] != null)
+                              if (_getHeaderText(emp['department']).isNotEmpty)
                                 Chip(
                                   label: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.business, size: 14),
+                                      const Icon(
+                                        Icons.business,
+                                        size: 14,
+                                        color: Colors.black87,
+                                      ),
                                       const SizedBox(width: 4),
-                                      Text(emp['department']),
+                                      Text(_getHeaderText(emp['department'])),
                                     ],
                                   ),
-                                  backgroundColor: Colors.white.withOpacity(0.2),
-                                  labelStyle: const TextStyle(color: Colors.white, fontSize: 11),
-                                  padding: EdgeInsets.zero,
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  backgroundColor: Colors.white,
+                                  labelStyle: const TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 11,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  side: const BorderSide(color: Colors.grey),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
-                              if (emp['designation'] != null)
+                              if (_getHeaderText(emp['designation']).isNotEmpty)
                                 Chip(
                                   label: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.work, size: 14),
+                                      const Icon(
+                                        Icons.work,
+                                        size: 14,
+                                        color: Colors.black87,
+                                      ),
                                       const SizedBox(width: 4),
-                                      Text(emp['designation']),
+                                      Text(_getHeaderText(emp['designation'])),
                                     ],
                                   ),
-                                  backgroundColor: Colors.white.withOpacity(0.2),
-                                  labelStyle: const TextStyle(color: Colors.white, fontSize: 11),
-                                  padding: EdgeInsets.zero,
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  backgroundColor: Colors.white,
+                                  labelStyle: const TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 11,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  side: const BorderSide(color: Colors.grey),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                             ],
                           ),
@@ -890,13 +1025,13 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
+                      icon: const Icon(Icons.close, color: Colors.black87),
                       onPressed: _closeEmployeeDetails,
                     ),
                   ],
                 ),
               ),
-              
+
               // Content - Responsive layout
               Expanded(
                 child: SingleChildScrollView(
@@ -914,7 +1049,12 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                             const SizedBox(height: 16),
                             _buildEmergencyContactCard(emp),
                             const SizedBox(height: 16),
-                            _buildDocumentsCard(setDialogState),
+                            _buildDocumentsCard(
+                              email,
+                              docs,
+                              selectedDoc,
+                              setDialogState,
+                            ),
                             const SizedBox(height: 16),
                             _buildAwardsCard(setDialogState),
                           ],
@@ -924,33 +1064,38 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                      // Left Column - Personal Info & Emergency Contact
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildPersonalInfoCard(emp),
-                            const SizedBox(height: 16),
-                            _buildEmergencyContactCard(emp),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Right Column - Documents & Awards
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildDocumentsCard(setDialogState),
-                            const SizedBox(height: 16),
-                            _buildAwardsCard(setDialogState),
-                          ],
-                        ),
-                      ),
+                            // Left Column - Personal Info & Emergency Contact
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildPersonalInfoCard(emp),
+                                  const SizedBox(height: 16),
+                                  _buildEmergencyContactCard(emp),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // Right Column - Documents & Awards
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildDocumentsCard(
+                                    email,
+                                    docs,
+                                    selectedDoc,
+                                    setDialogState,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildAwardsCard(setDialogState),
+                                ],
+                              ),
+                            ),
                           ],
                         );
                       }
@@ -982,7 +1127,10 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                 Expanded(
                   child: Text(
                     'Personal Information',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -991,9 +1139,15 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
             ),
             const SizedBox(height: 16),
             _buildDetailRow('Department', emp['department'] ?? 'Not provided'),
-            _buildDetailRow('Designation', emp['designation'] ?? 'Not provided'),
+            _buildDetailRow(
+              'Designation',
+              emp['designation'] ?? 'Not provided',
+            ),
             _buildDetailRow('Phone', emp['phone'] ?? 'Not provided'),
-            _buildDetailRow('Employment Type', emp['employment_type'] ?? 'Not provided'),
+            _buildDetailRow(
+              'Employment Type',
+              emp['employment_type'] ?? 'Not provided',
+            ),
           ],
         ),
       ),
@@ -1017,7 +1171,10 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                 Expanded(
                   child: Text(
                     'Emergency Contact',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1025,9 +1182,18 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            _buildDetailRow('Name', emp['emergency_contact_name'] ?? 'Not provided'),
-            _buildDetailRow('Relationship', emp['emergency_contact_relationship'] ?? 'Not provided'),
-            _buildDetailRow('Phone', emp['emergency_contact_no'] ?? 'Not provided'),
+            _buildDetailRow(
+              'Name',
+              emp['emergency_contact_name'] ?? 'Not provided',
+            ),
+            _buildDetailRow(
+              'Relationship',
+              emp['emergency_contact_relationship'] ?? 'Not provided',
+            ),
+            _buildDetailRow(
+              'Phone',
+              emp['emergency_contact_no'] ?? 'Not provided',
+            ),
           ],
         ),
       ),
@@ -1060,7 +1226,12 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
     );
   }
 
-  Widget _buildDocumentsCard(StateSetter setDialogState) {
+  Widget _buildDocumentsCard(
+    String email,
+    Map<String, dynamic>? docs,
+    String? selectedDoc,
+    StateSetter setDialogState,
+  ) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1071,65 +1242,30 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.description, color: Colors.blue[600], size: 20),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'Documents',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                Icon(Icons.description, color: Colors.blue[600], size: 20),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Documents',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (_docs != null) ...[
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      '${_docs!.entries.where((e) => e.key != 'email_id' && e.value != null && e.value.toString().startsWith('https')).length} files',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
               ],
             ),
             const SizedBox(height: 16),
-            if (_docLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (_docError.isNotEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    children: [
-                      Icon(Icons.description, size: 48, color: Colors.red[300]),
-                      const SizedBox(height: 8),
-                      Text(_docError, style: TextStyle(color: Colors.red[600])),
-                    ],
-                  ),
-                ),
-              )
-            else if (_selectedDoc != null)
+            if (_selectedDoc != null)
               Column(
                 children: [
                   ElevatedButton.icon(
                     onPressed: () {
-                      setState(() => _selectedDoc = null);
-                      setDialogState(() {});
+                      setDialogState(() => _selectedDoc = null);
                     },
                     icon: const Icon(Icons.arrow_back),
                     label: const Text('Back to Documents'),
@@ -1140,37 +1276,53 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
               )
             else if (_docs != null && _docs!.isNotEmpty)
               ..._docs!.entries
-                  .where((e) =>
-                      e.key != 'email_id' &&
-                      e.value != null &&
-                      e.value.toString().startsWith('https'))
-                  .map((entry) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Card(
-                          color: Colors.grey[50],
-                          child: ListTile(
-                            leading: const Icon(Icons.description),
-                            title: Text(
-                              entry.key.replaceAll('_', ' ').toUpperCase(),
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            trailing: ElevatedButton(
-                              onPressed: () {
-                                setState(() => _selectedDoc = entry.value.toString());
-                                setDialogState(() {});
-                              },
-                              child: const Text('View', style: TextStyle(fontSize: 12)),
+                  .where(
+                    (e) =>
+                        e.key != 'email_id' &&
+                        e.key != 'id' &&
+                        e.key != 'email' &&
+                        e.value is String &&
+                        (e.value as String).trim().isNotEmpty,
+                  )
+                  .map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Card(
+                        color: Colors.grey[50],
+                        child: ListTile(
+                          leading: const Icon(Icons.description),
+                          title: Text(
+                            entry.key.replaceAll('_', ' '),
+                            style: const TextStyle(fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: ElevatedButton(
+                            onPressed: () {
+                              setDialogState(
+                                () => _selectedDoc = entry.value.toString(),
+                              );
+                            },
+                            child: const Text(
+                              'View',
+                              style: TextStyle(fontSize: 12),
                             ),
                           ),
                         ),
-                      ))
+                      ),
+                    ),
+                  )
             else
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
                     children: [
-                      Icon(Icons.description, size: 48, color: Colors.grey[300]),
+                      Icon(
+                        Icons.description,
+                        size: 48,
+                        color: Colors.grey[300],
+                      ),
                       const SizedBox(height: 8),
                       const Text('No documents available'),
                       const SizedBox(height: 4),
@@ -1204,12 +1356,19 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      Icon(Icons.emoji_events, color: Colors.amber[600], size: 20),
+                      Icon(
+                        Icons.emoji_events,
+                        color: Colors.amber[600],
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
                           'Awards & Achievements',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1231,7 +1390,11 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
                     children: [
-                      Icon(Icons.emoji_events, size: 48, color: Colors.grey[300]),
+                      Icon(
+                        Icons.emoji_events,
+                        size: 48,
+                        color: Colors.grey[300],
+                      ),
                       const SizedBox(height: 8),
                       const Text('No awards yet'),
                       const SizedBox(height: 4),
@@ -1244,60 +1407,70 @@ class _ManagerTeamScreenState extends State<ManagerTeamScreen> {
                 ),
               )
             else
-              ..._awards.map((award) => Card(
-                    color: Colors.amber[50],
-                    child: ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.amber[100],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          _getAwardIcon(award['title'] ?? ''),
-                          color: Colors.amber[800],
-                        ),
+              ..._awards.map(
+                (award) => Card(
+                  color: Colors.amber[50],
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber[100],
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      title: Text(
-                        award['title'] ?? '',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      child: Icon(
+                        _getAwardIcon(award['title'] ?? ''),
+                        color: Colors.amber[800],
                       ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (award['description'] != null)
-                            Text(award['description']),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today, size: 12),
-                              const SizedBox(width: 4),
-                              Text(
-                                DateFormat('MMM d, y').format(
-                                  DateTime.parse(award['created_at'] ?? DateTime.now().toIso8601String()),
-                                ),
-                                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      trailing: award['photo'] != null
-                          ? TextButton.icon(
-                              onPressed: () {
-                                setState(() => _selectedDoc = award['photo']);
-                                setDialogState(() {});
-                              },
-                              icon: const Icon(Icons.visibility, size: 16),
-                              label: const Text('View', style: TextStyle(fontSize: 11)),
-                            )
-                          : null,
                     ),
-                  )),
+                    title: Text(
+                      award['title'] ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (award['description'] != null)
+                          Text(award['description']),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 12),
+                            const SizedBox(width: 4),
+                            Text(
+                              DateFormat('MMM d, y').format(
+                                DateTime.parse(
+                                  award['created_at'] ??
+                                      DateTime.now().toIso8601String(),
+                                ),
+                              ),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    trailing: award['photo'] != null
+                        ? TextButton.icon(
+                            onPressed: () {
+                              setState(() => _selectedDoc = award['photo']);
+                              setDialogState(() {});
+                            },
+                            icon: const Icon(Icons.visibility, size: 16),
+                            label: const Text(
+                              'View',
+                              style: TextStyle(fontSize: 11),
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 }
-

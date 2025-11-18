@@ -5,8 +5,8 @@ import '../services/api_service.dart';
 import 'onboarding_screen.dart';
 import 'login_screen.dart';
 import 'ceo/ceo_dashboard_screen.dart';
+import 'ceo/ceo_employees_screen.dart';
 import 'manager/manager_dashboard_screen.dart';
-import 'hr/hr_dashboard_screen.dart';
 import 'employee/employee_dashboard_screen.dart';
 import 'admin/admin_dashboard_screen.dart';
 
@@ -17,7 +17,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
@@ -25,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -89,7 +90,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               dashboardScreen = const ManagerDashboardScreen();
               break;
             case 'hr':
-              dashboardScreen = const HrDashboardScreen();
+              dashboardScreen = const CeoEmployeesScreen();
               break;
             case 'employee':
               dashboardScreen = const EmployeeDashboardScreen();
@@ -101,9 +102,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               dashboardScreen = const LoginScreen();
           }
 
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => dashboardScreen),
-          );
+          Navigator.of(
+            context,
+          ).pushReplacement(MaterialPageRoute(builder: (_) => dashboardScreen));
           return;
         } catch (_) {
           // If parsing fails, fall through to login
@@ -112,9 +113,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     }
 
     // Fallback: go to login screen
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
   @override

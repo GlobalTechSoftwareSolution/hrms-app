@@ -13,12 +13,12 @@ class CeoEmployeesScreen extends StatefulWidget {
 
 class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
   final ApiService _apiService = ApiService();
-  
+
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _documents = [];
   List<Map<String, dynamic>> _payrolls = [];
   List<Map<String, dynamic>> _filteredEmployees = [];
-  
+
   bool _isLoading = true;
   String _searchTerm = '';
   String _departmentFilter = 'all';
@@ -32,24 +32,32 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
 
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-    
+
     try {
       // Fetch employees
       final employeesResponse = await _apiService.get('/accounts/employees/');
       if (employeesResponse['success']) {
-        _employees = List<Map<String, dynamic>>.from(employeesResponse['data'] ?? []);
+        _employees = List<Map<String, dynamic>>.from(
+          employeesResponse['data'] ?? [],
+        );
       }
 
       // Fetch documents
-      final documentsResponse = await _apiService.get('/accounts/employee_documents/');
+      final documentsResponse = await _apiService.get(
+        '/accounts/employee_documents/',
+      );
       if (documentsResponse['success']) {
-        _documents = List<Map<String, dynamic>>.from(documentsResponse['data'] ?? []);
+        _documents = List<Map<String, dynamic>>.from(
+          documentsResponse['data'] ?? [],
+        );
       }
 
       // Fetch payrolls
       final payrollsResponse = await _apiService.get('/accounts/payrolls/');
       if (payrollsResponse['success']) {
-        _payrolls = List<Map<String, dynamic>>.from(payrollsResponse['data'] ?? []);
+        _payrolls = List<Map<String, dynamic>>.from(
+          payrollsResponse['data'] ?? [],
+        );
       }
 
       _applyFilters();
@@ -64,7 +72,8 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
 
   void _applyFilters() {
     _filteredEmployees = _employees.where((employee) {
-      final matchesSearch = _searchTerm.isEmpty ||
+      final matchesSearch =
+          _searchTerm.isEmpty ||
           (employee['fullname'] ?? employee['name'] ?? '')
               .toLowerCase()
               .contains(_searchTerm.toLowerCase()) ||
@@ -75,10 +84,12 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
               .toLowerCase()
               .contains(_searchTerm.toLowerCase());
 
-      final matchesDepartment = _departmentFilter == 'all' ||
+      final matchesDepartment =
+          _departmentFilter == 'all' ||
           (employee['department'] ?? '') == _departmentFilter;
 
-      final matchesStatus = _statusFilter == 'all' ||
+      final matchesStatus =
+          _statusFilter == 'all' ||
           (employee['status'] ?? 'active') == _statusFilter;
 
       return matchesSearch && matchesDepartment && matchesStatus;
@@ -95,9 +106,13 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
   }
 
   void _showEmployeeDetails(Map<String, dynamic> employee) {
-    final payroll = _getLatestPayroll(employee['email_id'] ?? employee['email'] ?? '');
-    final hasDocuments = _hasDocuments(employee['email_id'] ?? employee['email'] ?? '');
-    
+    final payroll = _getLatestPayroll(
+      employee['email_id'] ?? employee['email'] ?? '',
+    );
+    final hasDocuments = _hasDocuments(
+      employee['email_id'] ?? employee['email'] ?? '',
+    );
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -119,7 +134,9 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -144,7 +161,9 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            employee['fullname'] ?? employee['name'] ?? 'Unknown',
+                            employee['fullname'] ??
+                                employee['name'] ??
+                                'Unknown',
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -154,7 +173,9 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            employee['designation'] ?? employee['role'] ?? 'Employee',
+                            employee['designation'] ??
+                                employee['role'] ??
+                                'Employee',
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.white70,
@@ -163,9 +184,14 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                           ),
                           const SizedBox(height: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: _getStatusColor(employee['status']).withOpacity(0.2),
+                              color: _getStatusColor(
+                                employee['status'],
+                              ).withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.white70),
                             ),
@@ -197,12 +223,16 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
                   ],
                 ),
               ),
-              
+
               // Detailed Information
               Expanded(
                 child: SingleChildScrollView(
@@ -212,68 +242,153 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                     children: [
                       // Personal Information
                       _buildInfoCard('Personal Information', [
-                        _buildDetailRow('Full Name', employee['fullname'] ?? employee['name'] ?? 'N/A'),
-                        _buildDetailRow('Email', employee['email_id'] ?? employee['email'] ?? 'N/A'),
-                        _buildDetailRow('Phone', employee['phone'] ?? employee['mobile'] ?? 'N/A'),
-                        _buildDetailRow('Date of Birth', _formatDate(employee['date_of_birth'] ?? employee['dob'])),
+                        _buildDetailRow(
+                          'Full Name',
+                          employee['fullname'] ?? employee['name'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Email',
+                          employee['email_id'] ?? employee['email'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Phone',
+                          employee['phone'] ?? employee['mobile'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Date of Birth',
+                          _formatDate(
+                            employee['date_of_birth'] ?? employee['dob'],
+                          ),
+                        ),
                         _buildDetailRow('Gender', employee['gender'] ?? 'N/A'),
-                        _buildDetailRow('Address', employee['address'] ?? 'N/A'),
+                        _buildDetailRow(
+                          'Address',
+                          employee['address'] ?? 'N/A',
+                        ),
                       ]),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Employment Information
                       _buildInfoCard('Employment Details', [
-                        _buildDetailRow('Employee ID', employee['employee_id'] ?? employee['emp_id'] ?? 'N/A'),
-                        _buildDetailRow('Department', employee['department'] ?? 'N/A'),
-                        _buildDetailRow('Designation', employee['designation'] ?? employee['role'] ?? 'N/A'),
-                        _buildDetailRow('Join Date', _formatDate(employee['join_date'] ?? employee['date_joined'])),
-                        _buildDetailRow('Employment Type', employee['employment_type'] ?? 'Full-time'),
-                        _buildDetailRow('Work Location', employee['work_location'] ?? employee['office_location'] ?? 'N/A'),
-                        _buildDetailRow('Manager', employee['manager'] ?? employee['reporting_manager'] ?? 'N/A'),
-                        _buildDetailRow('Years at Company', _calculateYearsAtCompany(employee)),
+                        _buildDetailRow(
+                          'Employee ID',
+                          employee['employee_id'] ??
+                              employee['emp_id'] ??
+                              'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Department',
+                          employee['department'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Designation',
+                          employee['designation'] ?? employee['role'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Join Date',
+                          _formatDate(
+                            employee['join_date'] ?? employee['date_joined'],
+                          ),
+                        ),
+                        _buildDetailRow(
+                          'Employment Type',
+                          employee['employment_type'] ?? 'Full-time',
+                        ),
+                        _buildDetailRow(
+                          'Work Location',
+                          employee['work_location'] ??
+                              employee['office_location'] ??
+                              'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Manager',
+                          employee['manager'] ??
+                              employee['reporting_manager'] ??
+                              'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Years at Company',
+                          _calculateYearsAtCompany(employee),
+                        ),
                       ]),
-                      
+
                       if (payroll != null) ...[
                         const SizedBox(height: 16),
                         _buildInfoCard('Salary Information', [
-                          _buildDetailRow('Basic Salary', '₹${payroll['basic_salary'] ?? payroll['salary'] ?? 0}', 
-                            color: Colors.green.shade600),
+                          _buildDetailRow(
+                            'Basic Salary',
+                            '₹${payroll['basic_salary'] ?? payroll['salary'] ?? 0}',
+                            color: Colors.green.shade600,
+                          ),
                           _buildDetailRow('HRA', '₹${payroll['hra'] ?? 0}'),
-                          _buildDetailRow('Medical Allowance', '₹${payroll['medical_allowance'] ?? 0}'),
-                          _buildDetailRow('Transport Allowance', '₹${payroll['transport_allowance'] ?? 0}'),
-                          _buildDetailRow('Gross Salary', '₹${payroll['gross_salary'] ?? 0}', 
-                            color: Colors.blue.shade600),
-                          _buildDetailRow('Net Salary', '₹${payroll['net_salary'] ?? 0}', 
-                            color: Colors.green.shade600),
-                          _buildDetailRow('Pay Period', '${payroll['month']}/${payroll['year']}'),
+                          _buildDetailRow(
+                            'Medical Allowance',
+                            '₹${payroll['medical_allowance'] ?? 0}',
+                          ),
+                          _buildDetailRow(
+                            'Transport Allowance',
+                            '₹${payroll['transport_allowance'] ?? 0}',
+                          ),
+                          _buildDetailRow(
+                            'Gross Salary',
+                            '₹${payroll['gross_salary'] ?? 0}',
+                            color: Colors.blue.shade600,
+                          ),
+                          _buildDetailRow(
+                            'Net Salary',
+                            '₹${payroll['net_salary'] ?? 0}',
+                            color: Colors.green.shade600,
+                          ),
+                          _buildDetailRow(
+                            'Pay Period',
+                            '${payroll['month']}/${payroll['year']}',
+                          ),
                         ]),
                       ],
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Additional Information
                       _buildInfoCard('Additional Details', [
-                        _buildDetailRow('Emergency Contact', employee['emergency_contact'] ?? 'N/A'),
-                        _buildDetailRow('Blood Group', employee['blood_group'] ?? 'N/A'),
-                        _buildDetailRow('Marital Status', employee['marital_status'] ?? 'N/A'),
-                        _buildDetailRow('PAN Number', employee['pan_number'] ?? 'N/A'),
-                        _buildDetailRow('Aadhar Number', employee['aadhar_number'] ?? 'N/A'),
-                        _buildDetailRow('Bank Account', employee['bank_account'] ?? 'N/A'),
-                        _buildDetailRow('Documents Status', hasDocuments ? '✓ Available' : '✗ Missing', 
-                          color: hasDocuments ? Colors.green : Colors.red),
+                        _buildDetailRow(
+                          'Emergency Contact',
+                          employee['emergency_contact'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Blood Group',
+                          employee['blood_group'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Marital Status',
+                          employee['marital_status'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'PAN Number',
+                          employee['pan_number'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Aadhar Number',
+                          employee['aadhar_number'] ?? 'N/A',
+                        ),
+                        _buildDetailRow(
+                          'Bank Account',
+                          employee['bank_account'] ?? 'N/A',
+                        ),
                       ]),
                     ],
                   ),
                 ),
               ),
-              
+
               // Single Action Button - View Full Profile
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(16),
+                  ),
                 ),
                 child: SizedBox(
                   width: double.infinity,
@@ -364,10 +479,7 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                color: color ?? Colors.black87,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: color ?? Colors.black87, fontSize: 14),
             ),
           ),
         ],
@@ -426,40 +538,43 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
   }
 
   Map<String, dynamic>? _getLatestPayroll(String email) {
-    final payrolls = _payrolls.where((p) => 
-      (p['email'] ?? '').toLowerCase() == email.toLowerCase()).toList();
-    
+    final payrolls = _payrolls
+        .where((p) => (p['email'] ?? '').toLowerCase() == email.toLowerCase())
+        .toList();
+
     if (payrolls.isEmpty) return null;
-    
+
     payrolls.sort((a, b) {
       final aYear = int.tryParse(a['year']?.toString() ?? '0') ?? 0;
       final bYear = int.tryParse(b['year']?.toString() ?? '0') ?? 0;
       final aMonth = int.tryParse(a['month']?.toString() ?? '0') ?? 0;
       final bMonth = int.tryParse(b['month']?.toString() ?? '0') ?? 0;
-      
+
       if (aYear != bYear) return bYear.compareTo(aYear);
       return bMonth.compareTo(aMonth);
     });
-    
+
     return payrolls.first;
   }
 
   bool _hasDocuments(String email) {
-    return _documents.any((doc) => 
-      (doc['employee_email'] ?? '').toLowerCase() == email.toLowerCase());
+    return _documents.any(
+      (doc) =>
+          (doc['employee_email'] ?? '').toLowerCase() == email.toLowerCase(),
+    );
   }
 
   String _calculateYearsAtCompany(Map<String, dynamic> employee) {
     final joinDateStr = employee['join_date'] ?? employee['date_joined'];
     if (joinDateStr == null) return 'N/A';
-    
+
     try {
       final joinDate = DateTime.parse(joinDateStr);
       final now = DateTime.now();
       final difference = now.difference(joinDate);
       final years = (difference.inDays / 365).floor();
       final months = ((difference.inDays % 365) / 30).floor();
-      
+
       if (years > 0) {
         return '$years yr ${months}m';
       } else {
@@ -504,7 +619,11 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                           color: Colors.blue.shade100,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(Icons.people, size: 24, color: Colors.blue.shade600),
+                        child: Icon(
+                          Icons.people,
+                          size: 24,
+                          color: Colors.blue.shade600,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -530,7 +649,10 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.green.shade50,
                           borderRadius: BorderRadius.circular(20),
@@ -539,7 +661,11 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_circle, size: 16, color: Colors.green.shade600),
+                            Icon(
+                              Icons.check_circle,
+                              size: 16,
+                              color: Colors.green.shade600,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '${_employees.length}',
@@ -554,9 +680,9 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Search Bar
                   TextField(
                     decoration: InputDecoration(
@@ -570,7 +696,10 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.blue.shade400),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       filled: true,
                       fillColor: Colors.grey.shade50,
                     ),
@@ -581,9 +710,9 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                       });
                     },
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Filters Row
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -594,10 +723,18 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                             _buildFilterDropdown(
                               'Department',
                               _departmentFilter,
-                              _departments.map((dept) => DropdownMenuItem(
-                                value: dept,
-                                child: Text(dept == 'all' ? 'All Departments' : dept),
-                              )).toList(),
+                              _departments
+                                  .map(
+                                    (dept) => DropdownMenuItem(
+                                      value: dept,
+                                      child: Text(
+                                        dept == 'all'
+                                            ? 'All Departments'
+                                            : dept,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
                               (value) {
                                 setState(() {
                                   _departmentFilter = value!;
@@ -610,11 +747,26 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                               'Status',
                               _statusFilter,
                               const [
-                                DropdownMenuItem(value: 'all', child: Text('All Status')),
-                                DropdownMenuItem(value: 'active', child: Text('Active')),
-                                DropdownMenuItem(value: 'on-leave', child: Text('On Leave')),
-                                DropdownMenuItem(value: 'pre-boarded', child: Text('Pre-boarded')),
-                                DropdownMenuItem(value: 'offboarded', child: Text('Offboarded')),
+                                DropdownMenuItem(
+                                  value: 'all',
+                                  child: Text('All Status'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'active',
+                                  child: Text('Active'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'on-leave',
+                                  child: Text('On Leave'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'pre-boarded',
+                                  child: Text('Pre-boarded'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'offboarded',
+                                  child: Text('Offboarded'),
+                                ),
                               ],
                               (value) {
                                 setState(() {
@@ -633,10 +785,18 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                               child: _buildFilterDropdown(
                                 'Department',
                                 _departmentFilter,
-                                _departments.map((dept) => DropdownMenuItem(
-                                  value: dept,
-                                  child: Text(dept == 'all' ? 'All Departments' : dept),
-                                )).toList(),
+                                _departments
+                                    .map(
+                                      (dept) => DropdownMenuItem(
+                                        value: dept,
+                                        child: Text(
+                                          dept == 'all'
+                                              ? 'All Departments'
+                                              : dept,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
                                 (value) {
                                   setState(() {
                                     _departmentFilter = value!;
@@ -651,11 +811,26 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                                 'Status',
                                 _statusFilter,
                                 const [
-                                  DropdownMenuItem(value: 'all', child: Text('All Status')),
-                                  DropdownMenuItem(value: 'active', child: Text('Active')),
-                                  DropdownMenuItem(value: 'on-leave', child: Text('On Leave')),
-                                  DropdownMenuItem(value: 'pre-boarded', child: Text('Pre-boarded')),
-                                  DropdownMenuItem(value: 'offboarded', child: Text('Offboarded')),
+                                  DropdownMenuItem(
+                                    value: 'all',
+                                    child: Text('All Status'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'active',
+                                    child: Text('Active'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'on-leave',
+                                    child: Text('On Leave'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'pre-boarded',
+                                    child: Text('Pre-boarded'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'offboarded',
+                                    child: Text('Offboarded'),
+                                  ),
                                 ],
                                 (value) {
                                   setState(() {
@@ -673,7 +848,7 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                 ],
               ),
             ),
-            
+
             // Employee List - Simple ListView without complex scrolling
             Expanded(
               child: _isLoading
@@ -683,36 +858,43 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                         children: [
                           CircularProgressIndicator(),
                           SizedBox(height: 16),
-                          Text('Loading employees...', style: TextStyle(color: Colors.grey)),
+                          Text(
+                            'Loading employees...',
+                            style: TextStyle(color: Colors.grey),
+                          ),
                         ],
                       ),
                     )
                   : _filteredEmployees.isEmpty
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                              SizedBox(height: 16),
-                              Text(
-                                'No employees found',
-                                style: TextStyle(fontSize: 18, color: Colors.grey),
-                              ),
-                              Text(
-                                'Try adjusting your search or filters',
-                                style: TextStyle(fontSize: 14, color: Colors.grey),
-                              ),
-                            ],
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.people_outline,
+                            size: 64,
+                            color: Colors.grey,
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _filteredEmployees.length,
-                          itemBuilder: (context, index) {
-                            final employee = _filteredEmployees[index];
-                            return _buildEmployeeCard(employee);
-                          },
-                        ),
+                          SizedBox(height: 16),
+                          Text(
+                            'No employees found',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                          Text(
+                            'Try adjusting your search or filters',
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _filteredEmployees.length,
+                      itemBuilder: (context, index) {
+                        final employee = _filteredEmployees[index];
+                        return _buildEmployeeCard(employee);
+                      },
+                    ),
             ),
           ],
         ),
@@ -749,7 +931,10 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.blue.shade400),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
             filled: true,
             fillColor: Colors.grey.shade50,
           ),
@@ -762,8 +947,10 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
   }
 
   Widget _buildEmployeeCard(Map<String, dynamic> employee) {
-    final payroll = _getLatestPayroll(employee['email_id'] ?? employee['email'] ?? '');
-    
+    final payroll = _getLatestPayroll(
+      employee['email_id'] ?? employee['email'] ?? '',
+    );
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -791,7 +978,9 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: _getStatusColor(employee['status']).withOpacity(0.3),
+                      color: _getStatusColor(
+                        employee['status'],
+                      ).withOpacity(0.3),
                       width: 2,
                     ),
                   ),
@@ -805,9 +994,9 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(width: 16),
-                
+
                 // Employee Info
                 Expanded(
                   child: Column(
@@ -817,7 +1006,9 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              employee['fullname'] ?? employee['name'] ?? 'Unknown',
+                              employee['fullname'] ??
+                                  employee['name'] ??
+                                  'Unknown',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -849,20 +1040,31 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
-                              color: _getRoleColor(employee['designation'] ?? employee['role']).withOpacity(0.1),
+                              color: _getRoleColor(
+                                employee['designation'] ?? employee['role'],
+                              ).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: _getRoleColor(employee['designation'] ?? employee['role']).withOpacity(0.3),
+                                color: _getRoleColor(
+                                  employee['designation'] ?? employee['role'],
+                                ).withOpacity(0.3),
                               ),
                             ),
                             child: Text(
-                              employee['designation'] ?? employee['role'] ?? 'Employee',
+                              employee['designation'] ??
+                                  employee['role'] ??
+                                  'Employee',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
-                                color: _getRoleColor(employee['designation'] ?? employee['role']),
+                                color: _getRoleColor(
+                                  employee['designation'] ?? employee['role'],
+                                ),
                               ),
                             ),
                           ),
@@ -895,16 +1097,21 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(width: 12),
-                
+
                 // Status & Action
                 Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(employee['status']).withOpacity(0.1),
+                        color: _getStatusColor(
+                          employee['status'],
+                        ).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(

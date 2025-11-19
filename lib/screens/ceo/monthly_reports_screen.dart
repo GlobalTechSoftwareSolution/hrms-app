@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/api_service.dart';
 import '../../layouts/dashboard_layout.dart';
 
@@ -22,6 +24,9 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
   String _searchQuery = '';
 
   Map<String, Map<String, dynamic>> _employeeMetrics = {};
+
+  // GPS related state
+  bool _isGpsOn = false;
 
   List<String> get months => [
     'January',
@@ -72,10 +77,38 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
     }).toList();
   }
 
+  Future<bool> checkLocationReady() async {
+    // Check permission
+    var permission = await Permission.location.status;
+
+    if (permission.isDenied || permission.isRestricted) {
+      permission = await Permission.location.request();
+      if (!permission.isGranted) {
+        return false; // user refused
+      }
+    }
+
+    // Check if GPS is ON
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return false; // GPS off
+    }
+
+    return true;
+  }
+
+  Future<void> _checkGPS() async {
+    bool ready = await checkLocationReady();
+    setState(() {
+      _isGpsOn = ready;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _fetchData();
+    _checkGPS();
   }
 
   Future<void> _fetchData() async {
@@ -437,6 +470,56 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
   Widget _buildContent() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    // Check GPS status first
+    if (!_isGpsOn) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.location_off, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              "GPS is turned OFF",
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Location services are required to view employee reports",
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () async {
+                await Geolocator.openLocationSettings();
+                // Re-check GPS after returning from settings
+                await Future.delayed(const Duration(seconds: 1));
+                _checkGPS();
+              },
+              icon: const Icon(Icons.settings),
+              label: const Text("Enable GPS"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton(onPressed: _checkGPS, child: const Text("Check Again")),
+          ],
+        ),
+      );
     }
 
     final months = [
@@ -1113,34 +1196,35 @@ class _MonthlyReportsScreenState extends State<MonthlyReportsScreen> {
                                         if (dateStr == null) return false;
                                         try {
                                           final d = DateTime.parse(
-                                            dateStr
-                                                .toString()
-                                                .replaceFirst(' ', 'T'),
+                                            dateStr.toString().replaceFirst(
+                                              ' ',
+                                              'T',
+                                            ),
                                           );
-                                          return d.month == (_selectedMonth + 1) &&
+                                          return d.month ==
+                                                  (_selectedMonth + 1) &&
                                               d.year == _selectedYear;
                                         } catch (_) {
                                           return false;
                                         }
-                                      }).toList()
-                                        ..sort((a, b) {
-                                          // Sort by date descending
-                                          final dateA = DateTime.tryParse(
-                                                (a['date'] ?? '')
-                                                    .toString()
-                                                    .replaceFirst(' ', 'T'),
-                                              )
-                                                  ?.millisecondsSinceEpoch ??
-                                              0;
-                                          final dateB = DateTime.tryParse(
-                                                (b['date'] ?? '')
-                                                    .toString()
-                                                    .replaceFirst(' ', 'T'),
-                                              )
-                                                  ?.millisecondsSinceEpoch ??
-                                              0;
-                                          return dateB.compareTo(dateA);
-                                        });
+                                      }).toList()..sort((a, b) {
+                                        // Sort by date descending
+                                        final dateA =
+                                            DateTime.tryParse(
+                                              (a['date'] ?? '')
+                                                  .toString()
+                                                  .replaceFirst(' ', 'T'),
+                                            )?.millisecondsSinceEpoch ??
+                                            0;
+                                        final dateB =
+                                            DateTime.tryParse(
+                                              (b['date'] ?? '')
+                                                  .toString()
+                                                  .replaceFirst(' ', 'T'),
+                                            )?.millisecondsSinceEpoch ??
+                                            0;
+                                        return dateB.compareTo(dateA);
+                                      });
 
                                   if (employeeAttendance.isEmpty) {
                                     return Center(

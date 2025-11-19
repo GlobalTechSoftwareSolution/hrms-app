@@ -49,6 +49,7 @@ dependencies:
   
   # Location
   geolocator: ^10.1.0
+  permission_handler: ^11.0.0
   
   # Onboarding
   smooth_page_indicator: ^1.1.0

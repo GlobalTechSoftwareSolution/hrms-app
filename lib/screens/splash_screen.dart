@@ -58,6 +58,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
+    final loggedIn = prefs.getBool('loggedIn') ?? false;
 
     if (!mounted) return;
 
@@ -69,13 +70,10 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    // If onboarding done, try auto-login using stored token & user info
-    final api = ApiService();
-    final isAuthenticated = await api.isAuthenticated();
-
+    // If onboarding done, try auto-login using stored flag & user info
     if (!mounted) return;
 
-    if (isAuthenticated) {
+    if (loggedIn) {
       final userInfoStr = prefs.getString('user_info');
       if (userInfoStr != null && userInfoStr.isNotEmpty) {
         try {

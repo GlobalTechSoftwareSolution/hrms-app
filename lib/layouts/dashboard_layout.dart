@@ -174,7 +174,9 @@ class _DashboardLayoutState extends State<DashboardLayout> {
 
   Future<void> _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.setBool('loggedIn', false); // mark user as logged out
+    await prefs.remove('user_info');
+    await prefs.remove('user_email');
 
     if (!mounted) return;
 

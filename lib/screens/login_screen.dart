@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
+import 'auth/forgot_password_screen.dart';
 import '../services/api_service.dart';
 import 'ceo/ceo_dashboard_screen.dart';
 import 'ceo/ceo_employees_screen.dart';
@@ -133,17 +134,13 @@ class _LoginScreenState extends State<LoginScreen> {
             return;
           }
 
-          // Store JWT token if backend provides it
-          if (data['token'] != null) {
-            await _apiService.saveToken(data['token']);
-            print('JWT Token stored: ${data['token']}');
-          } else {
-            print('No JWT token returned from backend');
-          }
+          // NOTE: Backend does not return a JWT/token for this app,
+          // so we rely purely on SharedPreferences for persistent login.
 
           // Store user email and info using SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_email', user['email']);
+          await prefs.setBool('loggedIn', true); // mark user as logged in
           print('Logged-in user email: ${user['email']}');
 
           // Remember last login for convenience
@@ -465,9 +462,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Password reset coming soon'),
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ForgotPasswordScreen(),
                                 ),
                               );
                             },

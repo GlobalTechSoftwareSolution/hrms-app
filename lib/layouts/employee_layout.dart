@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../screens/login_screen.dart';
+import '../services/api_service.dart';
+import '../utils/fcm_utils.dart';
 import '../screens/employee/employee_home_screen.dart';
 import '../screens/employee/employee_tasks_screen.dart';
 import '../screens/employee/employee_attendance_screen.dart';
@@ -14,7 +17,7 @@ import '../screens/employee/employee_tickets_screen.dart';
 import '../screens/employee/employee_projects_screen.dart';
 import '../screens/employee/employee_resignation_screen.dart';
 import '../screens/employee/employee_profile_screen.dart';
-import '../screens/employee/employee_notice_screen.dart';
+import '../screens/employee/employee_notifications_screen.dart'; // Import for notifications screen
 
 class EmployeeLayout extends StatefulWidget {
   const EmployeeLayout({super.key});
@@ -30,7 +33,7 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
 
   final List<Widget> _screens = [
     const EmployeeHomeScreen(),
-    const EmployeeNoticeScreen(),
+    const EmployeeNotificationsScreen(), // Changed from EmployeeNoticeScreen()
     const EmployeeAttendanceScreen(),
   ];
 
@@ -43,7 +46,7 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
     NavigationDestination(
       icon: Icon(Icons.notifications_outlined),
       selectedIcon: Icon(Icons.notifications),
-      label: 'Notices',
+      label: 'Notifications', // Changed from 'Notices'
     ),
     NavigationDestination(
       icon: Icon(Icons.access_time_outlined),
@@ -93,6 +96,9 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
   }
 
   Future<void> _handleLogout() async {
+    // Unregister FCM token before logging out
+    await FCMUtils.unregisterFCMTokenAtLogout();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
@@ -174,9 +180,7 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -365,10 +369,12 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => _TasksScreenWithDrawer(
-                        userInfo: userInfo,
-                        onLogout: _showLogoutDialog,
-                      )),
+                      MaterialPageRoute(
+                        builder: (_) => _TasksScreenWithDrawer(
+                          userInfo: userInfo,
+                          onLogout: _showLogoutDialog,
+                        ),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.access_time, 'Attendance', () {
@@ -379,63 +385,81 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeLeaveScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeLeaveScreen(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.attach_money, 'Payroll', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeePayrollScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeePayrollScreen(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.calendar_today, 'Calendar', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeHolidayCalendarScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeHolidayCalendarScreen(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.announcement, 'Notice', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeNoticeWrapper()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeNoticeWrapper(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.assessment, 'KRA & KPA', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeKraKpaWrapper()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeKraKpaWrapper(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.confirmation_number, 'Tickets', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeTicketsScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeTicketsScreen(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.work, 'Projects', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeProjectsScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeProjectsScreen(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.exit_to_app, 'Resign', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeResignationScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeResignationScreen(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(Icons.person, 'Profile', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeProfileScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeProfileScreen(),
+                      ),
                     );
                   }),
                 ],
@@ -648,10 +672,15 @@ class _TasksScreenWithDrawer extends StatelessWidget {
                   _buildDrawerItem(context, Icons.task_alt, 'Tasks', () {
                     Navigator.pop(context);
                   }),
-                  _buildDrawerItem(context, Icons.access_time, 'Attendance', () {
-                    Navigator.pop(context);
-                    Navigator.pop(context);
-                  }),
+                  _buildDrawerItem(
+                    context,
+                    Icons.access_time,
+                    'Attendance',
+                    () {
+                      Navigator.pop(context);
+                      Navigator.pop(context);
+                    },
+                  ),
                   _buildDrawerItem(context, Icons.event_note, 'Leaves', () {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -664,17 +693,24 @@ class _TasksScreenWithDrawer extends StatelessWidget {
                       const SnackBar(content: Text('Payroll - Coming soon')),
                     );
                   }),
-                  _buildDrawerItem(context, Icons.calendar_today, 'Calendar', () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Calendar - Coming soon')),
-                    );
-                  }),
+                  _buildDrawerItem(
+                    context,
+                    Icons.calendar_today,
+                    'Calendar',
+                    () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Calendar - Coming soon')),
+                      );
+                    },
+                  ),
                   _buildDrawerItem(context, Icons.announcement, 'Notice', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const EmployeeNoticeWrapper()),
+                      MaterialPageRoute(
+                        builder: (_) => const EmployeeNoticeWrapper(),
+                      ),
                     );
                   }),
                   _buildDrawerItem(context, Icons.assessment, 'KRA & KPA', () {
@@ -683,12 +719,17 @@ class _TasksScreenWithDrawer extends StatelessWidget {
                       const SnackBar(content: Text('KRA & KPA - Coming soon')),
                     );
                   }),
-                  _buildDrawerItem(context, Icons.confirmation_number, 'Tickets', () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Tickets - Coming soon')),
-                    );
-                  }),
+                  _buildDrawerItem(
+                    context,
+                    Icons.confirmation_number,
+                    'Tickets',
+                    () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tickets - Coming soon')),
+                      );
+                    },
+                  ),
                   _buildDrawerItem(context, Icons.work, 'Projects', () {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -743,13 +784,19 @@ class _TasksScreenWithDrawer extends StatelessWidget {
 
   Widget _buildDrawerProfilePicture() {
     final profilePic = userInfo?['profile_picture'] ?? userInfo?['picture'];
-    if (profilePic != null && profilePic.isNotEmpty && 
-        (profilePic.startsWith('http://') || profilePic.startsWith('https://'))) {
+    if (profilePic != null &&
+        profilePic.isNotEmpty &&
+        (profilePic.startsWith('http://') ||
+            profilePic.startsWith('https://'))) {
       return CircleAvatar(
         radius: 32,
         backgroundColor: Colors.white,
         child: ClipOval(
-          child: Image.network(profilePic, width: 64, height: 64, fit: BoxFit.cover,
+          child: Image.network(
+            profilePic,
+            width: 64,
+            height: 64,
+            fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => CircleAvatar(
               backgroundColor: Colors.blue.shade300,
               radius: 32,
@@ -766,7 +813,12 @@ class _TasksScreenWithDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerItem(BuildContext context, IconData icon, String title, VoidCallback onTap) {
+  Widget _buildDrawerItem(
+    BuildContext context,
+    IconData icon,
+    String title,
+    VoidCallback onTap,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -781,7 +833,14 @@ class _TasksScreenWithDrawer extends StatelessWidget {
               children: [
                 Icon(icon, color: Colors.white, size: 22),
                 const SizedBox(width: 16),
-                Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
             ),
           ),

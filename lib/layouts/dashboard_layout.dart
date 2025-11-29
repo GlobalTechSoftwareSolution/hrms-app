@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../screens/login_screen.dart';
+import '../services/api_service.dart';
+import '../utils/fcm_utils.dart';
 import '../screens/ceo/ceo_tickets_screen.dart';
 import '../screens/manager/manager_tickets_screen.dart';
 import '../screens/hr/hr_tickets_screen.dart';
@@ -173,6 +176,9 @@ class _DashboardLayoutState extends State<DashboardLayout> {
   }
 
   Future<void> _handleLogout() async {
+    // Unregister FCM token before logging out
+    await FCMUtils.unregisterFCMTokenAtLogout();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('loggedIn', false); // mark user as logged out
     await prefs.remove('user_info');

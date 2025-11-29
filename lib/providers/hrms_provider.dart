@@ -8,9 +8,16 @@ class HRMSProvider with ChangeNotifier {
   List<LeaveRequest> _leaveRequests = [];
   List<Attendance> _attendanceRecords = [];
 
+  // Loading states
+  bool _isLoading = false;
+  String? _errorMessage;
+
   List<Employee> get employees => _employees;
   List<LeaveRequest> get leaveRequests => _leaveRequests;
   List<Attendance> get attendanceRecords => _attendanceRecords;
+
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
   HRMSProvider();
 

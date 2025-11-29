@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import '../../services/api_service.dart';
+import '../../utils/location_utils.dart';
 
 class FaceScanAttendanceScreen extends StatefulWidget {
   final String attendanceType; // 'office' or 'work'
@@ -36,17 +37,17 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     );
-    
+
     // Initialize with safe values
     _scanProgress = 0.0;
-    
+
     // Start animation only when the widget is mounted
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _animationController.repeat();
       }
     });
-    
+
     _initializeCamera();
     _getLocation();
     _loadUserEmail();
@@ -92,24 +93,19 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
 
   Future<void> _getLocation() async {
     try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      final position = await LocationUtils.getCurrentLocation(context);
+
+      if (position != null) {
+        setState(() {
+          _position = position;
+        });
+        _showMessage('Location acquired successfully', 'success');
+      } else {
+        _showMessage(
+          'Unable to get location. Please check permissions and GPS.',
+          'error',
+        );
       }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _showMessage('Location permission denied', 'error');
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      setState(() {
-        _position = position;
-      });
     } catch (e) {
       print('Location error: $e');
       _showMessage('Unable to get location', 'error');
@@ -137,9 +133,16 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
       return;
     }
 
+    // Ensure we have location before proceeding
     if (_position == null) {
       _showMessage('Getting location...', 'warning');
-      return;
+      // Try to get location again
+      await _getLocation();
+
+      // Check again
+      if (_position == null) {
+        return;
+      }
     }
 
     // Reset state safely
@@ -155,7 +158,7 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
     const interval = 50; // 50ms
     final totalSteps = totalDuration ~/ interval;
     final progressIncrement = 1.0 / totalSteps;
-    
+
     // Use a single timer with counter instead of setState in each tick
     int step = 0;
     Timer.periodic(const Duration(milliseconds: interval), (timer) {
@@ -163,14 +166,14 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
         timer.cancel();
         return;
       }
-      
+
       step++;
       final newProgress = (progressIncrement * step).clamp(0.0, 1.0);
-      
+
       setState(() {
         _scanProgress = newProgress;
       });
-      
+
       if (newProgress >= 1.0) {
         timer.cancel();
         _uploadAttendance();
@@ -599,7 +602,7 @@ class HexagonPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Validate size to prevent NaN errors
     if (size.width <= 0 || size.height <= 0) return;
-    
+
     final paint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
@@ -608,7 +611,8 @@ class HexagonPainter extends CustomPainter {
     final path = Path();
     final centerX = size.width / 2;
     final centerY = size.height / 2;
-    final radius = (size.width / 2) * 0.9; // Slightly smaller to prevent overflow
+    final radius =
+        (size.width / 2) * 0.9; // Slightly smaller to prevent overflow
 
     // Pre-calculate points for better performance
     final points = List<Offset>.generate(7, (i) {
@@ -624,7 +628,7 @@ class HexagonPainter extends CustomPainter {
     for (int i = 1; i < points.length; i++) {
       path.lineTo(points[i].dx, points[i].dy);
     }
-    
+
     // Optimize drawing
     canvas.save();
     canvas.drawPath(path, paint);
@@ -640,11 +644,13 @@ class RingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Validate size to prevent NaN errors
     if (size.width <= 0 || size.height <= 0) return;
-    
+
     final paint = Paint()
-      ..color = Colors.blue.withOpacity(0.7) // Slightly more transparent
+      ..color = Colors.blue
+          .withOpacity(0.7) // Slightly more transparent
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5 // Slightly thinner for better performance
+      ..strokeWidth =
+          1.5 // Slightly thinner for better performance
       ..isAntiAlias = true; // Smoother edges
 
     final center = Offset(size.width / 2, size.height / 2);

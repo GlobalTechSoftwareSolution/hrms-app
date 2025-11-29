@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
+import '../utils/fcm_utils.dart';
 import 'signup_screen.dart';
 import 'auth/forgot_password_screen.dart';
-import '../services/api_service.dart';
 import 'ceo/ceo_dashboard_screen.dart';
 import 'ceo/ceo_employees_screen.dart';
 import 'manager/manager_dashboard_screen.dart';
@@ -177,6 +178,9 @@ class _LoginScreenState extends State<LoginScreen> {
           );
 
           print('Stored user info with profile picture: $profilePicture');
+
+          // Register FCM token with backend
+          await FCMUtils.registerFCMTokenAfterLogin();
 
           setState(() {
             _successMessage = 'Login successful!';

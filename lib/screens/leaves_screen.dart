@@ -12,42 +12,41 @@ class LeavesScreen extends StatelessWidget {
       builder: (context, hrmsProvider, child) {
         final leaveRequests = hrmsProvider.leaveRequests;
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Leave Requests',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+        return Scaffold(
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Leave Requests',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                  FloatingActionButton(
-                    onPressed: () => _showNewLeaveDialog(context),
-                    child: const Icon(Icons.add),
-                  ),
-                ],
+                    FloatingActionButton(
+                      onPressed: () => _showNewLeaveDialog(context),
+                      child: const Icon(Icons.add),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: leaveRequests.isEmpty
-                  ? const Center(
-                      child: Text('No leave requests'),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: leaveRequests.length,
-                      itemBuilder: (context, index) {
-                        final leave = leaveRequests[index];
-                        return _buildLeaveCard(context, leave, hrmsProvider);
-                      },
-                    ),
-            ),
-          ],
+              Expanded(
+                child: leaveRequests.isEmpty
+                    ? const Center(child: Text('No leave requests'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: leaveRequests.length,
+                        itemBuilder: (context, index) {
+                          final leave = leaveRequests[index];
+                          return _buildLeaveCard(context, leave, hrmsProvider);
+                        },
+                      ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -78,9 +77,7 @@ class LeavesScreen extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -102,10 +99,7 @@ class LeavesScreen extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         leave.leaveType,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -148,7 +142,11 @@ class LeavesScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         '${DateFormat('MMM dd').format(leave.startDate)} - ${DateFormat('MMM dd, yyyy').format(leave.endDate)}',
@@ -179,7 +177,11 @@ class LeavesScreen extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.description, size: 16, color: Colors.grey[600]),
+                      Icon(
+                        Icons.description,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

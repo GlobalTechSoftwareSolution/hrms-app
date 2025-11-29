@@ -12,67 +12,73 @@ class AttendanceScreen extends StatelessWidget {
       builder: (context, hrmsProvider, child) {
         final attendanceRecords = hrmsProvider.getTodayAttendance();
 
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey[300]!),
+        return Scaffold(
+          body: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      DateFormat('EEEE, MMMM dd, yyyy').format(DateTime.now()),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildStatusChip(
+                          'Present',
+                          attendanceRecords
+                              .where(
+                                (a) =>
+                                    a.status == 'present' || a.status == 'late',
+                              )
+                              .length,
+                          Colors.green,
+                        ),
+                        _buildStatusChip(
+                          'Absent',
+                          attendanceRecords
+                              .where((a) => a.status == 'absent')
+                              .length,
+                          Colors.red,
+                        ),
+                        _buildStatusChip(
+                          'Late',
+                          attendanceRecords
+                              .where((a) => a.status == 'late')
+                              .length,
+                          Colors.orange,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    DateFormat('EEEE, MMMM dd, yyyy').format(DateTime.now()),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStatusChip(
-                        'Present',
-                        attendanceRecords
-                            .where((a) =>
-                                a.status == 'present' || a.status == 'late')
-                            .length,
-                        Colors.green,
+              Expanded(
+                child: attendanceRecords.isEmpty
+                    ? const Center(
+                        child: Text('No attendance records for today'),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: attendanceRecords.length,
+                        itemBuilder: (context, index) {
+                          final attendance = attendanceRecords[index];
+                          return _buildAttendanceCard(attendance);
+                        },
                       ),
-                      _buildStatusChip(
-                        'Absent',
-                        attendanceRecords.where((a) => a.status == 'absent').length,
-                        Colors.red,
-                      ),
-                      _buildStatusChip(
-                        'Late',
-                        attendanceRecords.where((a) => a.status == 'late').length,
-                        Colors.orange,
-                      ),
-                    ],
-                  ),
-                ],
               ),
-            ),
-            Expanded(
-              child: attendanceRecords.isEmpty
-                  ? const Center(
-                      child: Text('No attendance records for today'),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: attendanceRecords.length,
-                      itemBuilder: (context, index) {
-                        final attendance = attendanceRecords[index];
-                        return _buildAttendanceCard(attendance);
-                      },
-                    ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -96,13 +102,7 @@ class AttendanceScreen extends StatelessWidget {
               color: color,
             ),
           ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: color,
-            ),
-          ),
+          Text(label, style: TextStyle(fontSize: 12, color: color)),
         ],
       ),
     );
@@ -133,9 +133,7 @@ class AttendanceScreen extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -146,11 +144,7 @@ class AttendanceScreen extends StatelessWidget {
                 color: statusColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                statusIcon,
-                color: statusColor,
-                size: 28,
-              ),
+              child: Icon(statusIcon, color: statusColor, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -207,10 +201,7 @@ class AttendanceScreen extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: statusColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),

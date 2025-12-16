@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import '../../services/api_service.dart';
+import '../../services/reverse_geocode_service.dart';
 import '../../utils/location_utils.dart';
 
 class FaceScanAttendanceScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
   bool _isLoading = false;
   double _scanProgress = 0.0;
   Position? _position;
+  String? _address;
   String? _message;
   String? _messageType; // 'success', 'error', 'warning'
   late AnimationController _animationController;
@@ -99,6 +101,17 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
         setState(() {
           _position = position;
         });
+
+        // Get human-readable address
+        final address = await ReverseGeocodeService.reverseGeocode(
+          position.latitude,
+          position.longitude,
+        );
+
+        setState(() {
+          _address = address;
+        });
+
         _showMessage('Location acquired successfully', 'success');
       } else {
         _showMessage(
@@ -386,16 +399,39 @@ class _FaceScanAttendanceScreenState extends State<FaceScanAttendanceScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(Icons.location_on, color: Colors.blue, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        '📍 ${_position!.latitude.toStringAsFixed(5)}, ${_position!.longitude.toStringAsFixed(5)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '📍 Current Location:',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _address ?? 'Loading address...',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '(${_position!.latitude.toStringAsFixed(5)}, ${_position!.longitude.toStringAsFixed(5)})',
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.hrms" "\0"
-            VALUE "FileDescription", "hrms_app" "\0"
+            VALUE "FileDescription", "Smart HR" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "hrms_app" "\0"
+            VALUE "InternalName", "Smart HR" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.hrms. All rights reserved." "\0"
-            VALUE "OriginalFilename", "hrms_app.exe" "\0"
-            VALUE "ProductName", "hrms_app" "\0"
+            VALUE "OriginalFilename", "smarthr.exe" "\0"
+            VALUE "ProductName", "Smart HR" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

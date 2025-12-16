@@ -163,10 +163,12 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ],
                         ),
-                        child: Icon(
-                          Icons.business_center,
-                          size: 80,
-                          color: Theme.of(context).colorScheme.primary,
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundImage: const AssetImage(
+                            'assets/images/logo.png',
+                          ),
+                          backgroundColor: Colors.transparent,
                         ),
                       ),
                       const SizedBox(height: 32),

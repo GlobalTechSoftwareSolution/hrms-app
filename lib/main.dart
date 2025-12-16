@@ -69,7 +69,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => NotificationProvider()),
       ],
       child: MaterialApp(
-        title: 'HRMS - Human Resource Management',
+        title: 'Smart HR - Human Resource Management',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
@@ -300,10 +300,10 @@ class _MainScreenState extends State<MainScreen> {
                 color: Theme.of(context).colorScheme.primary,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
-                Icons.business_center,
-                color: Colors.white,
-                size: 24,
+              child: CircleAvatar(
+                radius: 12,
+                backgroundImage: const AssetImage('assets/images/logo.png'),
+                backgroundColor: Colors.transparent,
               ),
             ),
             const SizedBox(width: 12),

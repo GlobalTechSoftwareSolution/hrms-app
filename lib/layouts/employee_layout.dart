@@ -154,7 +154,11 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
             height: 36,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              return const Icon(Icons.person, color: Colors.white, size: 20);
+              return CircleAvatar(
+                radius: 18,
+                backgroundImage: const AssetImage('assets/images/logo.png'),
+                backgroundColor: Colors.transparent,
+              );
             },
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
@@ -171,9 +175,9 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
     }
 
     return CircleAvatar(
-      backgroundColor: Colors.blue.shade300,
       radius: 18,
-      child: const Icon(Icons.person, color: Colors.white, size: 20),
+      backgroundImage: const AssetImage('assets/images/logo.png'),
+      backgroundColor: Colors.transparent,
     );
   }
 
@@ -523,9 +527,9 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
               return CircleAvatar(
-                backgroundColor: Colors.blue.shade300,
                 radius: 32,
-                child: const Icon(Icons.person, color: Colors.white, size: 32),
+                backgroundImage: const AssetImage('assets/images/logo.png'),
+                backgroundColor: Colors.transparent,
               );
             },
             loadingBuilder: (context, child, loadingProgress) {
@@ -549,9 +553,9 @@ class _EmployeeLayoutState extends State<EmployeeLayout> {
     }
 
     return CircleAvatar(
-      backgroundColor: Colors.blue.shade300,
       radius: 32,
-      child: const Icon(Icons.person, color: Colors.white, size: 32),
+      backgroundImage: const AssetImage('assets/images/logo.png'),
+      backgroundColor: Colors.transparent,
     );
   }
 

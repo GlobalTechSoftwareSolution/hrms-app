@@ -1,6 +1,6 @@
 {
-    "name": "hrms_app",
-    "short_name": "hrms_app",
+    "name": "Smart HR",
+    "short_name": "Smart HR",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

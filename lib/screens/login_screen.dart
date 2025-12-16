@@ -285,10 +285,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ).colorScheme.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Icon(
-                          Icons.business_center,
-                          size: 60,
-                          color: Theme.of(context).colorScheme.primary,
+                        child: CircleAvatar(
+                          radius: 30,
+                          backgroundImage: const AssetImage(
+                            'assets/images/logo.png',
+                          ),
+                          backgroundColor: Colors.transparent,
                         ),
                       ),
                       const SizedBox(height: 24),

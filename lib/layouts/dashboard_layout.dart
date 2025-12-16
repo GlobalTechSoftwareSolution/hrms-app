@@ -390,7 +390,11 @@ class _DashboardLayoutState extends State<DashboardLayout> {
             height: 40,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              return const Icon(Icons.person, color: Colors.white, size: 24);
+              return CircleAvatar(
+                radius: 20,
+                backgroundImage: const AssetImage('assets/images/logo.png'),
+                backgroundColor: Colors.transparent,
+              );
             },
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
@@ -406,11 +410,11 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       );
     }
 
-    // Default avatar with icon
+    // Default avatar with logo
     return CircleAvatar(
-      backgroundColor: Colors.blue.shade300,
       radius: 20,
-      child: const Icon(Icons.person, color: Colors.white, size: 24),
+      backgroundImage: const AssetImage('assets/images/logo.png'),
+      backgroundColor: Colors.transparent,
     );
   }
 
@@ -489,9 +493,9 @@ class _DashboardLayoutState extends State<DashboardLayout> {
             errorBuilder: (context, error, stackTrace) {
               print('Error loading profile picture: $error');
               return CircleAvatar(
-                backgroundColor: Colors.blue.shade300,
                 radius: 32,
-                child: const Icon(Icons.person, color: Colors.white, size: 32),
+                backgroundImage: const AssetImage('assets/images/logo.png'),
+                backgroundColor: Colors.transparent,
               );
             },
             loadingBuilder: (context, child, loadingProgress) {
@@ -514,11 +518,11 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       );
     }
 
-    // Default avatar with icon
+    // Default avatar with logo
     return CircleAvatar(
-      backgroundColor: Colors.blue.shade300,
       radius: 32,
-      child: const Icon(Icons.person, color: Colors.white, size: 32),
+      backgroundImage: const AssetImage('assets/images/logo.png'),
+      backgroundColor: Colors.transparent,
     );
   }
 

@@ -36,10 +36,26 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
     try {
       // Fetch employees
       final employeesResponse = await _apiService.get('/accounts/employees/');
+      print('CEO Employees - API Response: $employeesResponse');
+
       if (employeesResponse['success']) {
-        _employees = List<Map<String, dynamic>>.from(
-          employeesResponse['data'] ?? [],
-        );
+        final data = employeesResponse['data'];
+        print('CEO Employees - Raw data: $data');
+
+        if (data is List) {
+          _employees = List<Map<String, dynamic>>.from(data);
+        } else if (data is Map && data.containsKey('employees')) {
+          _employees = List<Map<String, dynamic>>.from(data['employees'] ?? []);
+        } else if (data is Map && data.containsKey('results')) {
+          _employees = List<Map<String, dynamic>>.from(data['results'] ?? []);
+        } else {
+          _employees = [];
+        }
+
+        print('CEO Employees - Processed employees: ${_employees.length}');
+      } else {
+        print('CEO Employees - API call not successful');
+        _employees = [];
       }
 
       // Fetch documents
@@ -63,6 +79,7 @@ class _CeoEmployeesScreenState extends State<CeoEmployeesScreen> {
       _applyFilters();
     } catch (e) {
       print('Error fetching data: $e');
+      _employees = [];
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

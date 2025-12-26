@@ -19,6 +19,9 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
   List<Map<String, dynamic>> _attendance = [];
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _leaves = [];
+  List<Map<String, dynamic>> _shifts = [];
+  List<Map<String, dynamic>> _overtimeRecords = [];
+  List<Map<String, dynamic>> _breaks = [];
 
   bool _isLoading = true;
   bool _isLoadingEmployees = true;
@@ -42,17 +45,38 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
     _fetchData();
     _fetchEmployees();
     _fetchLeaves();
+    _fetchShifts();
+    _fetchOvertimeRecords();
+    _fetchBreaks();
+    _fetchProjects();
   }
 
-  Future<void> _fetchData() async {
+  Future<void> _fetchData({DateTime? forDate}) async {
     setState(() => _isLoading = true);
 
     try {
-      final response = await _apiService.get('/accounts/list_attendance/');
+      // If a specific date is requested, try to fetch for that date
+      // Otherwise fetch general attendance data
+      String apiUrl = '/accounts/list_attendance/';
+      if (forDate != null) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(forDate);
+        apiUrl = '/accounts/list_attendance/?date=$dateStr';
+        print('CEO Attendance - Fetching attendance for date: $dateStr');
+      }
+
+      final response = await _apiService.get(apiUrl);
+      print('CEO Attendance - API Response: $response');
+
       if (response['success']) {
         final data = response['data'];
+        print('CEO Attendance - Raw data: $data');
+
         final attendanceList = List<Map<String, dynamic>>.from(
-          data['attendance'] ?? [],
+          data['attendance'] ?? data['data'] ?? data['results'] ?? [],
+        );
+
+        print(
+          'CEO Attendance - Processed attendance list: ${attendanceList.length} records',
         );
 
         // Process attendance data with calculated hours
@@ -77,9 +101,17 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
 
           return {...a, 'hours': hours};
         }).toList();
+
+        print(
+          'CEO Attendance - Final processed attendance: ${_attendance.length} records',
+        );
+      } else {
+        print('CEO Attendance - API call not successful');
+        _attendance = [];
       }
     } catch (e) {
-      debugPrint('Error fetching attendance: $e');
+      print('Error fetching attendance: $e');
+      _attendance = [];
     } finally {
       setState(() => _isLoading = false);
     }
@@ -90,8 +122,23 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
 
     try {
       final response = await _apiService.get('/accounts/employees/');
+      print('CEO Attendance - Employees API Response: $response');
+
       if (response['success']) {
-        _employees = List<Map<String, dynamic>>.from(response['data'] ?? []);
+        final data = response['data'];
+        print('CEO Attendance - Employees raw data: $data');
+
+        if (data is List) {
+          _employees = List<Map<String, dynamic>>.from(data);
+        } else if (data is Map && data.containsKey('employees')) {
+          _employees = List<Map<String, dynamic>>.from(data['employees'] ?? []);
+        } else if (data is Map && data.containsKey('results')) {
+          _employees = List<Map<String, dynamic>>.from(data['results'] ?? []);
+        } else {
+          _employees = [];
+        }
+
+        print('CEO Attendance - Processed employees: ${_employees.length}');
 
         // Filter employees who have joined on or before today
         final today = DateTime.now();
@@ -107,10 +154,16 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
               joinDate.isAtSameMomentAs(today);
         }).toList();
 
+        print('CEO Attendance - Active employees: ${activeEmployees.length}');
+
         setState(() => _totalEmployees = activeEmployees.length);
+      } else {
+        print('CEO Attendance - Employees API call not successful');
+        _employees = [];
       }
     } catch (e) {
-      debugPrint('Error fetching employees: $e');
+      print('Error fetching employees: $e');
+      _employees = [];
     } finally {
       setState(() => _isLoadingEmployees = false);
     }
@@ -125,6 +178,134 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
       }
     } catch (e) {
       debugPrint('Error fetching leaves: $e');
+    }
+  }
+
+  Future<void> _fetchShifts({DateTime? forDate}) async {
+    try {
+      // Always fetch all shifts and filter on frontend
+      // Some APIs may not support date filtering
+      final response = await _apiService.get('/accounts/list_shifts/');
+      print('CEO Attendance - Shifts API Response: $response');
+
+      if (response['success']) {
+        final data = response['data'];
+        print('CEO Attendance - Shifts raw data: $data');
+
+        final shiftsList = List<Map<String, dynamic>>.from(
+          data['shifts'] ?? data['data'] ?? data['results'] ?? [],
+        );
+
+        print('CEO Attendance - Processed shifts: ${shiftsList.length}');
+
+        setState(() => _shifts = shiftsList);
+      } else {
+        print('CEO Attendance - Shifts API call not successful');
+        setState(() => _shifts = []);
+      }
+    } catch (e) {
+      print('Error fetching shifts: $e');
+      setState(() => _shifts = []);
+    }
+  }
+
+  Future<void> _fetchOvertimeRecords({DateTime? forDate}) async {
+    try {
+      // If a specific date is requested, try to fetch for that date
+      // Otherwise fetch general OT data
+      String apiUrl = '/accounts/list_ot/';
+      if (forDate != null) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(forDate);
+        apiUrl = '/accounts/list_ot/?date=$dateStr';
+        print('CEO Attendance - Fetching OT for date: $dateStr');
+      }
+
+      final response = await _apiService.get(apiUrl);
+      print('CEO Attendance - OT API Response: $response');
+
+      if (response['success']) {
+        final data = response['data'];
+        print('CEO Attendance - OT raw data: $data');
+
+        final otList = List<Map<String, dynamic>>.from(
+          data['ot_records'] ?? data['data'] ?? data['results'] ?? [],
+        );
+
+        print('CEO Attendance - Processed OT records: ${otList.length}');
+
+        setState(() => _overtimeRecords = otList);
+      } else {
+        print('CEO Attendance - OT API call not successful');
+        setState(() => _overtimeRecords = []);
+      }
+    } catch (e) {
+      print('Error fetching overtime records: $e');
+      setState(() => _overtimeRecords = []);
+    }
+  }
+
+  Future<void> _fetchBreaks({DateTime? forDate}) async {
+    try {
+      // If a specific date is requested, try to fetch for that date
+      // Otherwise fetch general breaks data
+      String apiUrl = '/accounts/list_breaks/';
+      if (forDate != null) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(forDate);
+        apiUrl = '/accounts/list_breaks/?date=$dateStr';
+        print('CEO Attendance - Fetching breaks for date: $dateStr');
+      }
+
+      final response = await _apiService.get(apiUrl);
+      print('CEO Attendance - Breaks API Response: $response');
+
+      if (response['success']) {
+        final data = response['data'];
+        print('CEO Attendance - Breaks raw data: $data');
+
+        final breaksList = List<Map<String, dynamic>>.from(
+          data['break_records'] ??
+              data['breaks'] ??
+              data['data'] ??
+              data['results'] ??
+              [],
+        );
+
+        print('CEO Attendance - Processed breaks: ${breaksList.length}');
+
+        setState(() => _breaks = breaksList);
+      } else {
+        print('CEO Attendance - Breaks API call not successful');
+        setState(() => _breaks = []);
+      }
+    } catch (e) {
+      print('Error fetching breaks: $e');
+      setState(() => _breaks = []);
+    }
+  }
+
+  Future<void> _fetchProjects() async {
+    try {
+      final response = await _apiService.get('/accounts/list_projects/');
+      print('CEO Attendance - Projects API Response: $response');
+
+      if (response['success']) {
+        final data = response['data'];
+        print('CEO Attendance - Projects raw data: $data');
+
+        final projectsList = List<Map<String, dynamic>>.from(
+          data['projects'] ?? data['data'] ?? data['results'] ?? [],
+        );
+
+        print('CEO Attendance - Processed projects: ${projectsList.length}');
+
+        setState(() => _projects = projectsList);
+      } else {
+        print('CEO Attendance - Projects API call not successful');
+        setState(() => _projects = []);
+      }
+    } catch (e) {
+      print('Error fetching projects: $e');
+      setState(() => _projects = []);
     }
   }
 
@@ -150,14 +331,44 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
     }
   }
 
+  String _formatTime12Hour(String timeStr) {
+    if (timeStr.isEmpty) return '';
+    try {
+      // Handle HH:mm:ss or HH:mm format
+      final parts = timeStr.split(':');
+      if (parts.length < 2) return timeStr;
+
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+
+      // Convert to 12-hour format
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+
+      return '${hour12}:${minute.toString().padLeft(2, '0')} $period';
+    } catch (e) {
+      return timeStr; // Return original if parsing fails
+    }
+  }
+
   List<Map<String, dynamic>> get _dateAttendance {
     final effectiveDate = _selectedDate ?? DateTime.now();
     final dateStr = DateFormat('yyyy-MM-dd').format(effectiveDate);
+
+    print('CEO Attendance - Filtering for date: $dateStr');
+    print('CEO Attendance - Total attendance records: ${_attendance.length}');
 
     // Get attendance records for the date
     final attendanceForDate = _attendance
         .where((a) => a['date'] == dateStr)
         .toList();
+
+    print(
+      'CEO Attendance - Records for selected date: ${attendanceForDate.length}',
+    );
+    if (attendanceForDate.isNotEmpty) {
+      print('CEO Attendance - Sample record: ${attendanceForDate.first}');
+    }
 
     // Create attendance map for quick lookup
     final attendanceMap = <String, Map<String, dynamic>>{};
@@ -366,7 +577,7 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
               const SizedBox(height: 16),
               _buildCalendar(),
               const SizedBox(height: 16),
-              _buildAttendanceList(),
+              _buildUnifiedRecordsList(),
             ],
           ),
         ),
@@ -1090,9 +1301,7 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
                           barTouchData: BarTouchData(
                             enabled: true,
                             touchTooltipData: BarTouchTooltipData(
-                              tooltipBgColor: Colors.grey.shade800,
-                              tooltipRoundedRadius: 8,
-                              tooltipPadding: const EdgeInsets.all(8),
+                              getTooltipColor: (group) => Colors.grey.shade800,
                               getTooltipItem:
                                   (group, groupIndex, rod, rodIndex) {
                                     final attendanceData = _dateAttendance
@@ -1527,6 +1736,11 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
                 _selectedDate = selectedDay;
                 _attendanceFilter = null;
               });
+              // Fetch all data for the selected date
+              _fetchData(forDate: selectedDay);
+              _fetchShifts(forDate: selectedDay);
+              _fetchOvertimeRecords(forDate: selectedDay);
+              _fetchBreaks(forDate: selectedDay);
             },
             calendarFormat: CalendarFormat.month,
             headerStyle: const HeaderStyle(
@@ -1550,8 +1764,27 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
     );
   }
 
-  Widget _buildAttendanceList() {
+  Widget _buildUnifiedRecordsList() {
     final filteredAttendance = _filteredDateAttendance;
+    final selectedDate = _selectedDate ?? DateTime.now();
+    final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+    // Get breaks for the selected date
+    final dateBreaks = _breaks.where((breakRecord) {
+      if (breakRecord['break_start'] == null) return false;
+      try {
+        final breakDate = DateTime.parse(breakRecord['break_start']).toLocal();
+        final breakDateStr = DateFormat('yyyy-MM-dd').format(breakDate);
+        return breakDateStr == dateStr;
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+
+    // Get shifts for the selected date
+    final dateShifts = _shifts.where((shift) {
+      return shift['date'] == dateStr;
+    }).toList();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1575,7 +1808,7 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
               Expanded(
                 flex: 3,
                 child: Text(
-                  '${_selectedDate != null ? _formatDate(_selectedDate.toString()) : 'Today\'s'} Attendance',
+                  '${_selectedDate != null ? _formatDate(_selectedDate.toString()) : 'Today\'s'} Records',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -1599,25 +1832,47 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
 
           if (_isLoading || _isLoadingEmployees)
             const Center(child: CircularProgressIndicator())
-          else if (filteredAttendance.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'No attendance records found',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ),
-            )
           else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredAttendance.length,
-              itemBuilder: (context, index) {
-                final record = filteredAttendance[index];
-                return _buildAttendanceCard(record);
-              },
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Attendance Records
+                if (filteredAttendance.isNotEmpty) ...[
+                  const Text(
+                    'Attendance',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: filteredAttendance.length,
+                    itemBuilder: (context, index) {
+                      final record = filteredAttendance[index];
+                      return _buildAttendanceCard(record);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // No records message
+                if (filteredAttendance.isEmpty &&
+                    dateBreaks.isEmpty &&
+                    dateShifts.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text(
+                        'No records found for this date',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+              ],
             ),
         ],
       ),
@@ -1627,6 +1882,175 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
   Widget _buildAttendanceCard(Map<String, dynamic> record) {
     final hours = record['hours'] as Map<String, int>;
     final isPresent = record['check_in'] != null;
+    final employeeEmail = record['email'] ?? '';
+    final selectedDate = _selectedDate ?? DateTime.now();
+    final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+    // Find employee's shift for today
+    print(
+      'CEO Attendance - Looking for shift: email=$employeeEmail, date=$dateStr',
+    );
+    print('CEO Attendance - Available shifts: ${_shifts.length} total');
+    print('CEO Attendance - Shift data: $_shifts');
+
+    // Debug shift matching
+    print(
+      'CEO Attendance - Looking for shift: email=$employeeEmail, date=$dateStr',
+    );
+    print('CEO Attendance - Available shifts: ${_shifts.length}');
+
+    if (_shifts.isNotEmpty) {
+      print('CEO Attendance - First shift sample: ${_shifts.first}');
+      print('CEO Attendance - First shift date: ${_shifts.first['date']}');
+      print(
+        'CEO Attendance - First shift emp_email: ${_shifts.first['emp_email']}',
+      );
+    }
+
+    final employeeShift = _shifts.firstWhere((shift) {
+      final shiftEmail = shift['email'] ?? shift['emp_email'] ?? '';
+      final shiftDate = shift['date'] ?? '';
+
+      final emailMatch = shiftEmail == employeeEmail;
+      final dateMatch = shiftDate == dateStr;
+
+      print(
+        'CEO Attendance - Checking shift: email=$shiftEmail (match: $emailMatch), date=$shiftDate (match: $dateMatch)',
+      );
+
+      return emailMatch && dateMatch;
+    }, orElse: () => <String, dynamic>{});
+
+    print(
+      'CEO Attendance - Found employee shift: ${employeeShift.isNotEmpty ? employeeShift : 'NONE'}',
+    );
+
+    print(
+      'CEO Attendance - Found shift for employee: ${employeeShift.isNotEmpty ? employeeShift : 'NONE'}',
+    );
+
+    // Find employee's OT records for today - Debug the data
+    print(
+      'CEO Attendance - Looking for OT: email=$employeeEmail, date=$dateStr',
+    );
+    print(
+      'CEO Attendance - Available OT records: ${_overtimeRecords.length} total',
+    );
+
+    if (_overtimeRecords.isNotEmpty) {
+      print('CEO Attendance - Sample OT record: ${_overtimeRecords.first}');
+    }
+
+    final employeeOT = _overtimeRecords.where((ot) {
+      final otEmail =
+          ot['email'] ?? ot['emp_email'] ?? ot['employee_email'] ?? '';
+      if (otEmail != employeeEmail) return false;
+
+      // Try multiple date fields
+      final otDateField = ot['ot_start'] ?? ot['start_time'] ?? ot['date'];
+      if (otDateField == null) return false;
+
+      try {
+        DateTime otDate;
+        if (otDateField.contains('T')) {
+          // It's a datetime string
+          otDate = DateTime.parse(otDateField).toLocal();
+        } else {
+          // It's a date string
+          otDate = DateTime.parse(otDateField);
+        }
+        final otDateStr = DateFormat('yyyy-MM-dd').format(otDate);
+        return otDateStr == dateStr;
+      } catch (e) {
+        print(
+          'CEO Attendance - Error parsing OT date: $otDateField, error: $e',
+        );
+        return false;
+      }
+    }).toList();
+
+    print(
+      'CEO Attendance - Found OT records for employee: ${employeeOT.length}',
+    );
+    if (employeeOT.isNotEmpty) {
+      print('CEO Attendance - Sample employee OT: ${employeeOT.first}');
+    }
+
+    // Calculate total OT hours
+    double totalOTHours = 0;
+    for (final ot in employeeOT) {
+      final startTime = ot['ot_start'] ?? ot['start_time'];
+      final endTime = ot['ot_end'] ?? ot['end_time'];
+
+      if (startTime != null && endTime != null) {
+        try {
+          final start = DateTime.parse(startTime.toString());
+          final end = DateTime.parse(endTime.toString());
+          final diff = end.difference(start);
+          totalOTHours += diff.inMinutes / 60.0;
+        } catch (e) {
+          print('CEO Attendance - Error calculating OT hours: $e');
+          // Skip invalid OT records
+        }
+      }
+    }
+
+    // Find employee's breaks for today - Debug the data
+    print(
+      'CEO Attendance - Looking for breaks: email=$employeeEmail, date=$dateStr',
+    );
+    print('CEO Attendance - Available breaks: ${_breaks.length} total');
+
+    if (_breaks.isNotEmpty) {
+      print('CEO Attendance - Sample break record: ${_breaks.first}');
+      print('CEO Attendance - First break email: ${_breaks.first['email']}');
+      print(
+        'CEO Attendance - First break start: ${_breaks.first['break_start']}',
+      );
+    }
+
+    final employeeBreaks = _breaks.where((breakRecord) {
+      final breakEmail = breakRecord['email'] ?? '';
+      if (breakEmail != employeeEmail) return false;
+
+      final breakStart = breakRecord['break_start'];
+      if (breakStart == null) return false;
+
+      try {
+        final breakDate = DateTime.parse(breakStart).toLocal();
+        final breakDateStr = DateFormat('yyyy-MM-dd').format(breakDate);
+        final dateMatch = breakDateStr == dateStr;
+
+        print(
+          'CEO Attendance - Checking break: email=$breakEmail (match: ${breakEmail == employeeEmail}), date=$breakDateStr (match: $dateMatch)',
+        );
+
+        return dateMatch;
+      } catch (e) {
+        print(
+          'CEO Attendance - Error parsing break date: $breakStart, error: $e',
+        );
+        return false;
+      }
+    }).toList();
+
+    print('CEO Attendance - Found employee breaks: ${employeeBreaks.length}');
+
+    // Calculate total break hours
+    double totalBreakHours = 0;
+    for (final breakRecord in employeeBreaks) {
+      if (breakRecord['break_start'] != null &&
+          breakRecord['break_end'] != null) {
+        try {
+          final start = DateTime.parse(breakRecord['break_start']);
+          final end = DateTime.parse(breakRecord['break_end']);
+          final diff = end.difference(start);
+          totalBreakHours += diff.inMinutes / 60.0;
+        } catch (e) {
+          // Skip invalid break records
+        }
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1727,55 +2151,174 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
             ),
 
             // Divider Line
-            if (isPresent) ...[
-              const SizedBox(height: 12),
-              Divider(height: 1, color: Colors.grey.shade200),
-              const SizedBox(height: 12),
+            const SizedBox(height: 12),
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
 
-              // Bottom Row - Time Details
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTimeInfo(
-                      'Check In',
-                      record['check_in'] != null
-                          ? DateFormat('HH:mm').format(
-                              DateTime.parse(
-                                '${record['date']}T${record['check_in']}',
-                              ),
-                            )
-                          : '-',
-                      Icons.login,
-                      Colors.blue,
+            // Shift, OT, and Attendance Info
+            Column(
+              children: [
+                // Shift Information - Always show
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Icons.schedule,
+                        size: 14,
+                        color: Colors.blue.shade600,
+                      ),
                     ),
-                  ),
-                  Container(width: 1, height: 40, color: Colors.grey.shade200),
-                  Expanded(
-                    child: _buildTimeInfo(
-                      'Check Out',
-                      record['check_out'] != null
-                          ? DateFormat('HH:mm').format(
-                              DateTime.parse(
-                                '${record['date']}T${record['check_out']}',
-                              ),
-                            )
-                          : 'Pending',
-                      Icons.logout,
-                      record['check_out'] != null ? Colors.orange : Colors.grey,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        employeeShift.isNotEmpty
+                            ? 'Shift: ${employeeShift['shift'] ?? 'N/A'} (${_formatTime12Hour(employeeShift['start_time'] ?? '')} - ${_formatTime12Hour(employeeShift['end_time'] ?? '')})'
+                            : 'Shift: No shift assigned',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: employeeShift.isNotEmpty
+                              ? Colors.blue.shade700
+                              : Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
-                  Container(width: 1, height: 40, color: Colors.grey.shade200),
-                  Expanded(
-                    child: _buildTimeInfo(
-                      'Total Hours',
-                      '${hours['hrs']}h ${hours['mins']}m',
-                      Icons.schedule,
-                      Colors.green,
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // OT Information - Always show
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: Colors.orange.shade600,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        employeeOT.isNotEmpty
+                            ? employeeOT.length == 1
+                                  ? 'OT: ${DateFormat('hh:mm a').format(DateTime.parse(employeeOT.first['ot_start'] ?? employeeOT.first['start_time']).toLocal())} - ${employeeOT.first['ot_end'] != null || employeeOT.first['end_time'] != null ? DateFormat('hh:mm a').format(DateTime.parse(employeeOT.first['ot_end'] ?? employeeOT.first['end_time']).toLocal()) : 'Ongoing'} (${totalOTHours.toStringAsFixed(2)} hours)'
+                                  : 'OT: Multiple (${employeeOT.length})'
+                            : 'OT: No overtime recorded',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: employeeOT.isNotEmpty
+                              ? Colors.orange.shade700
+                              : Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Break Information - Always show
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Icons.coffee,
+                        size: 14,
+                        color: Colors.purple.shade600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        employeeBreaks.isNotEmpty
+                            ? employeeBreaks.length == 1
+                                  ? 'Breaks: ${DateFormat('hh:mm a').format(DateTime.parse(employeeBreaks.first['break_start']).toLocal())} - ${employeeBreaks.first['break_end'] != null ? DateFormat('hh:mm a').format(DateTime.parse(employeeBreaks.first['break_end']).toLocal()) : 'Ongoing'} (${totalBreakHours.toStringAsFixed(2)} hours)'
+                                  : 'Breaks: Multiple (${employeeBreaks.length})'
+                            : 'Breaks: No breaks recorded',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: employeeBreaks.isNotEmpty
+                              ? Colors.purple.shade700
+                              : Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Attendance Information
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTimeInfo(
+                        'Check In',
+                        record['check_in'] != null
+                            ? DateFormat('hh:mm a').format(
+                                DateTime.parse(
+                                  '${record['date']}T${record['check_in']}',
+                                ),
+                              )
+                            : '-',
+                        Icons.login,
+                        Colors.blue,
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: Colors.grey.shade200,
+                    ),
+                    Expanded(
+                      child: _buildTimeInfo(
+                        'Check Out',
+                        record['check_out'] != null
+                            ? DateFormat('hh:mm a').format(
+                                DateTime.parse(
+                                  '${record['date']}T${record['check_out']}',
+                                ),
+                              )
+                            : 'Pending',
+                        Icons.logout,
+                        record['check_out'] != null
+                            ? Colors.orange
+                            : Colors.grey,
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: Colors.grey.shade200,
+                    ),
+                    Expanded(
+                      child: _buildTimeInfo(
+                        'Total Hours',
+                        '${hours['hrs']}h ${hours['mins']}m',
+                        Icons.schedule,
+                        Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -2301,5 +2844,654 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildBreaksList() {
+    final selectedDate = _selectedDate ?? DateTime.now();
+    final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+    // Filter breaks for the selected date
+    final dateBreaks = _breaks.where((breakRecord) {
+      if (breakRecord['break_start'] == null) return false;
+      try {
+        final breakDate = DateTime.parse(breakRecord['break_start']).toLocal();
+        final breakDateStr = DateFormat('yyyy-MM-dd').format(breakDate);
+        return breakDateStr == dateStr;
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.coffee,
+                  size: 20,
+                  color: Colors.purple.shade600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${_selectedDate != null ? _formatDate(_selectedDate.toString()) : 'Today\'s'} Breaks',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (dateBreaks.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Text(
+                  'No breaks recorded for this date',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: dateBreaks.length,
+              itemBuilder: (context, index) {
+                final breakRecord = dateBreaks[index];
+                return _buildBreakCard(breakRecord);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreakCard(Map<String, dynamic> breakRecord) {
+    // Find employee details
+    final employee = _employees.firstWhere(
+      (emp) =>
+          emp['email_id'] == breakRecord['email'] ||
+          emp['email'] == breakRecord['email'],
+      orElse: () => <String, dynamic>{},
+    );
+
+    String breakDuration = 'N/A';
+    if (breakRecord['break_start'] != null &&
+        breakRecord['break_end'] != null) {
+      try {
+        final start = DateTime.parse(breakRecord['break_start']);
+        final end = DateTime.parse(breakRecord['break_end']);
+        final diff = end.difference(start);
+        final hours = diff.inHours;
+        final minutes = diff.inMinutes % 60;
+        breakDuration = hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+      } catch (e) {
+        // Keep default value
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.purple.withOpacity(0.3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Employee Info
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.coffee,
+                    color: Colors.purple.shade600,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        employee['fullname'] ??
+                            breakRecord['emp_name'] ??
+                            'Unknown',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        breakRecord['email'] ?? '',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.purple.shade200),
+                  ),
+                  child: Text(
+                    'Break',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.purple.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
+
+            // Break Times
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTimeInfo(
+                    'Break Start',
+                    breakRecord['break_start'] != null
+                        ? DateFormat('HH:mm').format(
+                            DateTime.parse(
+                              breakRecord['break_start'],
+                            ).toLocal(),
+                          )
+                        : '-',
+                    Icons.play_arrow,
+                    Colors.purple,
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade200),
+                Expanded(
+                  child: _buildTimeInfo(
+                    'Break End',
+                    breakRecord['break_end'] != null
+                        ? DateFormat('HH:mm').format(
+                            DateTime.parse(breakRecord['break_end']).toLocal(),
+                          )
+                        : 'Ongoing',
+                    Icons.stop,
+                    breakRecord['break_end'] != null
+                        ? Colors.orange
+                        : Colors.grey,
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade200),
+                Expanded(
+                  child: _buildTimeInfo(
+                    'Duration',
+                    breakDuration,
+                    Icons.schedule,
+                    Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftsList() {
+    final selectedDate = _selectedDate ?? DateTime.now();
+    final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+    // Filter shifts for the selected date
+    final dateShifts = _shifts.where((shift) {
+      return shift['date'] == dateStr;
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.schedule,
+                  size: 20,
+                  color: Colors.blue.shade600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${_selectedDate != null ? _formatDate(_selectedDate.toString()) : 'Today\'s'} Shifts',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (dateShifts.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Text(
+                  'No shifts scheduled for this date',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: dateShifts.length,
+              itemBuilder: (context, index) {
+                final shift = dateShifts[index];
+                return _buildShiftCard(shift);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShiftCard(Map<String, dynamic> shift) {
+    // Find employee details
+    final employee = _employees.firstWhere(
+      (emp) =>
+          emp['email_id'] == shift['emp_email'] ||
+          emp['email'] == shift['emp_email'],
+      orElse: () => <String, dynamic>{},
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Employee Info
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.schedule,
+                    color: Colors.blue.shade600,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        employee['fullname'] ?? shift['emp_name'] ?? 'Unknown',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        shift['emp_email'] ?? '',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Text(
+                    shift['shift'] ?? 'Shift',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
+
+            // Shift Times and Manager
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTimeInfo(
+                    'Start Time',
+                    shift['start_time'] ?? '-',
+                    Icons.play_arrow,
+                    Colors.green,
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade200),
+                Expanded(
+                  child: _buildTimeInfo(
+                    'End Time',
+                    shift['end_time'] ?? '-',
+                    Icons.stop,
+                    Colors.orange,
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade200),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Icon(Icons.person, size: 18, color: Colors.purple),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Manager',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        shift['manager_name'] ?? 'N/A',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectCard(Map<String, dynamic> project) {
+    final statusColor = _getStatusColor(project['status'] ?? '');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.teal.withOpacity(0.3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Project Info
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.folder,
+                    color: Colors.teal.shade600,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        project['name'] ??
+                            project['title'] ??
+                            'Unknown Project',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        project['email'] ?? '',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    project['status'] ?? 'Unknown',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            if (project['description'] != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                project['description'],
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+
+            const SizedBox(height: 12),
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
+
+            // Project Dates and Members
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTimeInfo(
+                    'Start Date',
+                    project['start_date'] != null
+                        ? _formatDate(project['start_date'])
+                        : '-',
+                    Icons.calendar_today,
+                    Colors.green,
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade200),
+                Expanded(
+                  child: _buildTimeInfo(
+                    'End Date',
+                    project['end_date'] != null
+                        ? _formatDate(project['end_date'])
+                        : '-',
+                    Icons.event,
+                    Colors.orange,
+                  ),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade200),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Icon(Icons.people, size: 18, color: Colors.purple),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Members',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${(project['members'] as List<dynamic>?)?.length ?? 0}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'done':
+        return Colors.green;
+      case 'in progress':
+      case 'active':
+      case 'planning':
+        return Colors.blue;
+      case 'pending':
+        return Colors.orange;
+      case 'cancelled':
+      case 'on hold':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 }

@@ -73,31 +73,89 @@ class _HolidayCalendarState extends State<HolidayCalendar> {
 
     try {
       // Call the real API to fetch holidays
+      print('🌐 Fetching holidays from API...');
       final response = await _apiService.get('/accounts/holidays/');
+      print('✅ Holiday API response: $response');
 
-      if (response['success']) {
-        final holidaysData = response['data'] as List? ?? [];
-
+      if (!response['success']) {
+        print('❌ Holiday API failed: ${response['error']}');
         setState(() {
-          _holidays = holidaysData
-              .map(
-                (h) => {
-                  'year': h['year'] ?? DateTime.now().year,
-                  'month': h['month'] ?? 1,
-                  'country': h['country'] ?? 'India',
-                  'date': h['date'] ?? '',
-                  'name': h['name'] ?? 'Holiday',
-                  'type': h['type'] ?? 'Other',
-                  'weekday': h['weekday'] ?? '',
-                },
-              )
-              .toList();
+          _error = response['error'] ?? 'Failed to fetch holidays';
         });
-      } else {
-        setState(() {
-          _error = response['error'] ?? 'Failed to load holidays';
-        });
+        return;
       }
+
+      // Handle response based on its actual structure
+      dynamic responseData = response['data'];
+      List<dynamic> holidaysData = [];
+
+      if (responseData is List) {
+        // If response is directly a list
+        holidaysData = responseData;
+      } else if (responseData is Map<String, dynamic>) {
+        // If response is a map, try to get the data from common keys
+        if (responseData.containsKey('data')) {
+          final data = responseData['data'];
+          if (data is List) {
+            holidaysData = data;
+          } else {
+            holidaysData = [];
+          }
+        } else if (responseData.containsKey('holidays')) {
+          final holidays = responseData['holidays'];
+          if (holidays is List) {
+            holidaysData = holidays;
+          } else {
+            holidaysData = [];
+          }
+        } else if (responseData.containsKey('results')) {
+          final results = responseData['results'];
+          if (results is List) {
+            holidaysData = results;
+          } else {
+            holidaysData = [];
+          }
+        } else {
+          // If no common key found, return empty list
+          holidaysData = [];
+        }
+      } else {
+        // If response is neither List nor Map, return empty list
+        holidaysData = [];
+      }
+
+      setState(() {
+        _holidays = holidaysData.map((h) {
+          // Ensure h is treated as Map<String, dynamic> or convert if needed
+          Map<String, dynamic> holidayMap;
+          if (h is Map<String, dynamic>) {
+            holidayMap = h;
+          } else if (h is Map) {
+            holidayMap = Map<String, dynamic>.from(h);
+          } else {
+            // If it's not a map at all, return a default holiday object
+            return {
+              'year': DateTime.now().year,
+              'month': 1,
+              'country': 'India',
+              'date': '',
+              'name': 'Holiday',
+              'type': 'Other',
+              'weekday': '',
+            };
+          }
+
+          return {
+            'year': holidayMap['year'] ?? DateTime.now().year,
+            'month': holidayMap['month'] ?? 1,
+            'country': holidayMap['country'] ?? 'India',
+            'date': holidayMap['date'] ?? '',
+            'name': holidayMap['name'] ?? 'Holiday',
+            'type': holidayMap['type'] ?? 'Other',
+            'weekday': holidayMap['weekday'] ?? '',
+          };
+        }).toList();
+      });
     } catch (e) {
       setState(() {
         _error =
@@ -339,8 +397,10 @@ class _HolidayCalendarState extends State<HolidayCalendar> {
                     onPressed: _goToPreviousMonth,
                     icon: const Icon(Icons.chevron_left, size: 16),
                     padding: const EdgeInsets.all(6),
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     color: Colors.grey.shade600,
                   ),
                 ),
@@ -370,8 +430,10 @@ class _HolidayCalendarState extends State<HolidayCalendar> {
                     onPressed: _goToNextMonth,
                     icon: const Icon(Icons.chevron_right, size: 16),
                     padding: const EdgeInsets.all(6),
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     color: Colors.grey.shade600,
                   ),
                 ),
@@ -384,8 +446,10 @@ class _HolidayCalendarState extends State<HolidayCalendar> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade600,
                   foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   textStyle: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,

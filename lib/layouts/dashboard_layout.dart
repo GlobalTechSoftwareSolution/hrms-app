@@ -50,6 +50,8 @@ import '../screens/ceo/ceo_calendar_screen.dart';
 import '../screens/ceo/ceo_profile_screen.dart';
 import '../screens/employee/employee_calendar_screen.dart';
 import '../screens/employee/employee_profile_screen.dart';
+import '../screens/petty_cash_screen.dart';
+import '../screens/shift_maker_screen.dart';
 
 class DashboardLayout extends StatefulWidget {
   final Widget child;
@@ -76,6 +78,7 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       {'name': 'Attendance', 'path': '/ceo/attendance'},
       {'name': 'Monthly Report', 'path': '/ceo/monthly_report'},
       {'name': 'Finance', 'path': '/ceo/finance'},
+      {'name': 'Petty Cash', 'path': '/petty_cash'},
       {'name': 'Projects', 'path': '/ceo/projects'},
       {'name': 'Notice', 'path': '/ceo/notice'},
       {'name': 'Calendar', 'path': '/ceo/calendar'},
@@ -89,6 +92,7 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       {'name': 'Leave Approvals', 'path': '/manager/leaveapprovals'},
       {'name': 'Attendance', 'path': '/manager/attendance'},
       {'name': 'Monthly Report', 'path': '/manager/monthly_report'},
+      {'name': 'Petty Cash', 'path': '/petty_cash'},
       {'name': 'Notice', 'path': '/manager/notice'},
       {'name': 'Calendar', 'path': '/manager/calendar'},
       {'name': 'Tickets', 'path': '/manager/tickets'},
@@ -102,6 +106,7 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       {'name': 'Attendance', 'path': '/hr/attendance'},
       {'name': 'Monthly Report', 'path': '/hr/monthly_report'},
       {'name': 'Payroll', 'path': '/hr/payroll'},
+      {'name': 'Petty Cash', 'path': '/petty_cash'},
       {'name': 'Onboarding', 'path': '/hr/onboarding'},
       {'name': 'Offboarding', 'path': '/hr/offboarding'},
       {'name': 'Leaves', 'path': '/hr/leaves'},
@@ -128,6 +133,8 @@ class _DashboardLayoutState extends State<DashboardLayout> {
     'admin': [
       {'name': 'Attendance', 'path': '/admin/attendance'},
       {'name': 'Approvals', 'path': '/admin/approvals'},
+      {'name': 'Petty Cash', 'path': '/petty_cash'},
+      {'name': 'Shift & OT', 'path': '/shift_maker'},
       {'name': 'Calendar', 'path': '/admin/calendar'},
       {'name': 'Notice', 'path': '/admin/notice'},
       {'name': 'Tickets', 'path': '/admin/tickets'},
@@ -331,6 +338,12 @@ class _DashboardLayoutState extends State<DashboardLayout> {
         break;
       case '/employee/profile':
         screen = const EmployeeProfileScreen();
+        break;
+      case '/petty_cash':
+        screen = const PettyCashScreen();
+        break;
+      case '/shift_maker':
+        screen = const ShiftMakerScreen();
         break;
       default:
         // Show a snackbar for unimplemented routes

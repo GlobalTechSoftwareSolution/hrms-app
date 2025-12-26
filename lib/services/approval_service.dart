@@ -13,16 +13,29 @@ class ApprovalService {
       final url = '${ApiConfig.apiUrl}$usersEndpoint';
       print('🌐 Fetching users from: $url');
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(ApiConfig.requestTimeout);
+      final response = await http
+          .get(Uri.parse(url), headers: {'Content-Type': 'application/json'})
+          .timeout(ApiConfig.requestTimeout);
 
       print('✅ Users API response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => UserApproval.fromJson(json)).toList();
+        final dynamic data = jsonDecode(response.body);
+
+        // Handle case where response is directly a list
+        if (data is List) {
+          return data.map((json) => UserApproval.fromJson(json)).toList();
+        }
+
+        // Handle case where response is a map containing a list
+        if (data is Map<String, dynamic>) {
+          final List<dynamic> userList =
+              data['users'] ?? data['results'] ?? data['data'] ?? [];
+          return userList.map((json) => UserApproval.fromJson(json)).toList();
+        }
+
+        // Fallback: return empty list
+        return [];
       } else {
         throw Exception('Failed to fetch users: ${response.statusCode}');
       }
@@ -37,18 +50,22 @@ class ApprovalService {
       final url = '${ApiConfig.apiUrl}$approveEndpoint';
       print('🌐 Approving user at: $url');
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email}),
-      ).timeout(ApiConfig.requestTimeout);
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(ApiConfig.requestTimeout);
 
       print('✅ Approve response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         return true;
       } else {
-        throw Exception('Failed to approve user: ${response.statusCode} - ${response.body}');
+        throw Exception(
+          'Failed to approve user: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       print('❌ Approve error: $e');
@@ -61,18 +78,22 @@ class ApprovalService {
       final url = '${ApiConfig.apiUrl}$rejectEndpoint';
       print('🌐 Rejecting user at: $url');
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email}),
-      ).timeout(ApiConfig.requestTimeout);
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(ApiConfig.requestTimeout);
 
       print('✅ Reject response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         return true;
       } else {
-        throw Exception('Failed to reject user: ${response.statusCode} - ${response.body}');
+        throw Exception(
+          'Failed to reject user: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       print('❌ Reject error: $e');

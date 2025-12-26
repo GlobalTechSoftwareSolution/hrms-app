@@ -30,10 +30,18 @@ class _TicketWidgetState extends State<TicketWidget> {
   String priorityFilter = '';
   bool showFilters = false;
   String activeSection = 'all';
+  String? _userEmail;
 
   @override
   void initState() {
     super.initState();
+    _getUserEmail().then((email) {
+      if (mounted) {
+        setState(() {
+          _userEmail = email;
+        });
+      }
+    });
     _fetchTickets();
   }
 
@@ -42,7 +50,11 @@ class _TicketWidgetState extends State<TicketWidget> {
     setState(() => isLoading = true);
 
     try {
+      print('🎫 Starting ticket fetch...');
       final categorizedTickets = await _ticketService.fetchCategorizedTickets();
+      print(
+        '✅ Ticket fetch successful: ${categorizedTickets['allTickets']?.length ?? 0} tickets',
+      );
       if (!mounted) return;
 
       setState(() {
@@ -50,6 +62,7 @@ class _TicketWidgetState extends State<TicketWidget> {
         isLoading = false;
       });
     } catch (e) {
+      print('❌ Ticket fetch error: $e');
       if (!mounted) return;
 
       setState(() => isLoading = false);
@@ -75,7 +88,11 @@ class _TicketWidgetState extends State<TicketWidget> {
         currentTickets = tickets['closedByMe']!;
         break;
       default:
-        currentTickets = tickets['allTickets']!;
+        // For 'All' section, only show tickets where user is assigned_to or assigned_by
+        currentTickets = tickets['allTickets']!.where((ticket) {
+          return (ticket.assignedTo?.toLowerCase() == _userEmail) ||
+              (ticket.assignedBy?.toLowerCase() == _userEmail);
+        }).toList();
     }
 
     return currentTickets.where((ticket) {
@@ -96,17 +113,21 @@ class _TicketWidgetState extends State<TicketWidget> {
   @override
   Widget build(BuildContext context) {
     final currentTickets = _getCurrentTickets();
+    // Calculate stats based on user-specific tickets (same logic as 'All' section)
+    final userTickets = tickets['allTickets']!.where((ticket) {
+      return (ticket.assignedTo?.toLowerCase() == _userEmail) ||
+          (ticket.assignedBy?.toLowerCase() == _userEmail);
+    }).toList();
+
     final stats = {
-      'total': tickets['allTickets']!.length,
+      'total': userTickets.length,
       'assigned': tickets['assignedToMe']!.length,
       'raised': tickets['raisedByMe']!.length,
       'closed': tickets['closedByMe']!
           .where((t) => t.status == 'closed')
           .length,
-      'open': tickets['allTickets']!.where((t) => t.status == 'open').length,
-      'inProgress': tickets['allTickets']!
-          .where((t) => t.status == 'in-progress')
-          .length,
+      'open': userTickets.where((t) => t.status == 'open').length,
+      'inProgress': userTickets.where((t) => t.status == 'in-progress').length,
     };
 
     return SafeArea(
@@ -515,7 +536,7 @@ class _TicketWidgetState extends State<TicketWidget> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _formatDate(ticket.createdAt),
+                        _formatDateOnly(ticket.createdAt),
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,
@@ -656,6 +677,10 @@ class _TicketWidgetState extends State<TicketWidget> {
     }
   }
 
+  String _formatDateOnly(DateTime date) {
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
+
   Future<String?> _getUserEmail() async {
     final prefs = await SharedPreferences.getInstance();
     final userInfoString = prefs.getString('user_info');
@@ -732,99 +757,124 @@ class _TicketWidgetState extends State<TicketWidget> {
             content: SizedBox(
               width: MediaQuery.of(context).size.width * 0.9,
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: subjectController,
-                      decoration: const InputDecoration(
-                        labelText: 'Subject',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                      ),
-                      maxLines: 4,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: priority,
-                      decoration: const InputDecoration(
-                        labelText: 'Priority',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                      ),
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(value: 'low', child: Text('Low')),
-                        DropdownMenuItem(
-                          value: 'medium',
-                          child: Text('Medium'),
-                        ),
-                        DropdownMenuItem(value: 'high', child: Text('High')),
-                        DropdownMenuItem(
-                          value: 'urgent',
-                          child: Text('Urgent'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setDialogState(() => priority = value!);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    if (loadingUsers)
-                      const Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: CircularProgressIndicator(),
-                      )
-                    else
-                      DropdownButtonFormField<String>(
-                        value: assignedTo,
-                        decoration: const InputDecoration(
-                          labelText: 'Assign To (Optional)',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        ),
-                        isExpanded: true,
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('Unassigned'),
-                          ),
-                          ...users.map(
-                            (user) => DropdownMenuItem(
-                              value: user['email'],
-                              child: Text(
-                                user['fullname'] ?? user['email'],
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.6,
+                  ),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: subjectController,
+                          decoration: const InputDecoration(
+                            labelText: 'Subject',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
                             ),
                           ),
-                        ],
-                        onChanged: (value) {
-                          setDialogState(() => assignedTo = value);
-                        },
-                      ),
-                  ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: descriptionController,
+                          decoration: const InputDecoration(
+                            labelText: 'Description',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                          ),
+                          maxLines: 4,
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: priority,
+                          decoration: const InputDecoration(
+                            labelText: 'Priority',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                          ),
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(value: 'low', child: Text('Low')),
+                            DropdownMenuItem(
+                              value: 'medium',
+                              child: Text('Medium'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'high',
+                              child: Text('High'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'urgent',
+                              child: Text('Urgent'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setDialogState(() => priority = value!);
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        if (loadingUsers)
+                          const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(),
+                          )
+                        else
+                          DropdownButtonFormField<String>(
+                            value: assignedTo,
+                            decoration: const InputDecoration(
+                              labelText: 'Assign To (Optional)',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                            ),
+                            isExpanded: true,
+                            items: [
+                              ...users.map(
+                                (user) => DropdownMenuItem(
+                                  value: user['email'],
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user['fullname'] ??
+                                            user['name'] ??
+                                            'Unknown User',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        user['email'] ?? user['email_id'] ?? '',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setDialogState(() => assignedTo = value);
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -836,10 +886,15 @@ class _TicketWidgetState extends State<TicketWidget> {
               ElevatedButton(
                 onPressed: () async {
                   if (subjectController.text.isEmpty ||
-                      descriptionController.text.isEmpty) {
+                      descriptionController.text.isEmpty ||
+                      assignedTo == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please fill in all required fields'),
+                      SnackBar(
+                        content: Text(
+                          assignedTo == null
+                              ? 'Please assign the ticket to a user'
+                              : 'Please fill in all required fields',
+                        ),
                       ),
                     );
                     return;
@@ -899,7 +954,7 @@ class _TicketWidgetState extends State<TicketWidget> {
                   } catch (e) {
                     if (mounted) {
                       Navigator.pop(context);
-                      
+
                       // Show user-friendly error dialog
                       showDialog(
                         context: context,
@@ -1008,7 +1063,9 @@ class _TicketWidgetState extends State<TicketWidget> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),
-          if (ticket.status != 'closed')
+          if (ticket.status != 'closed' &&
+              (activeSection == 'assigned' ||
+                  ticket.assignedTo?.toLowerCase() == _userEmail))
             ElevatedButton(
               onPressed: () async {
                 final canUpdate = await _canUpdateTicket(ticket);

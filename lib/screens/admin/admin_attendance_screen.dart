@@ -943,14 +943,15 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
             Row(
               children: [
                 // Check-in photo
-                Expanded(
+                Flexible(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
                         'Check-in',
                         style: TextStyle(fontSize: 10, color: Colors.grey),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Container(
                         width: 40,
                         height: 40,
@@ -985,14 +986,15 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                 ),
                 const SizedBox(width: 8),
                 // Check-out photo
-                Expanded(
+                Flexible(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
                         'Check-out',
                         style: TextStyle(fontSize: 10, color: Colors.grey),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Container(
                         width: 40,
                         height: 40,

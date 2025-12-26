@@ -48,7 +48,6 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
     _fetchShifts();
     _fetchOvertimeRecords();
     _fetchBreaks();
-    _fetchProjects();
   }
 
   Future<void> _fetchData({DateTime? forDate}) async {
@@ -280,32 +279,6 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
     } catch (e) {
       print('Error fetching breaks: $e');
       setState(() => _breaks = []);
-    }
-  }
-
-  Future<void> _fetchProjects() async {
-    try {
-      final response = await _apiService.get('/accounts/list_projects/');
-      print('CEO Attendance - Projects API Response: $response');
-
-      if (response['success']) {
-        final data = response['data'];
-        print('CEO Attendance - Projects raw data: $data');
-
-        final projectsList = List<Map<String, dynamic>>.from(
-          data['projects'] ?? data['data'] ?? data['results'] ?? [],
-        );
-
-        print('CEO Attendance - Processed projects: ${projectsList.length}');
-
-        setState(() => _projects = projectsList);
-      } else {
-        print('CEO Attendance - Projects API call not successful');
-        setState(() => _projects = []);
-      }
-    } catch (e) {
-      print('Error fetching projects: $e');
-      setState(() => _projects = []);
     }
   }
 
@@ -3304,166 +3277,6 @@ class _CeoAttendanceScreenState extends State<CeoAttendanceScreen> {
                         ),
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProjectCard(Map<String, dynamic> project) {
-    final statusColor = _getStatusColor(project['status'] ?? '');
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: Colors.teal.withOpacity(0.3), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Project Info
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.folder,
-                    color: Colors.teal.shade600,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        project['name'] ??
-                            project['title'] ??
-                            'Unknown Project',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        project['email'] ?? '',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: statusColor.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    project['status'] ?? 'Unknown',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            if (project['description'] != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                project['description'],
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-
-            const SizedBox(height: 12),
-            Divider(height: 1, color: Colors.grey.shade200),
-            const SizedBox(height: 12),
-
-            // Project Dates and Members
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTimeInfo(
-                    'Start Date',
-                    project['start_date'] != null
-                        ? _formatDate(project['start_date'])
-                        : '-',
-                    Icons.calendar_today,
-                    Colors.green,
-                  ),
-                ),
-                Container(width: 1, height: 40, color: Colors.grey.shade200),
-                Expanded(
-                  child: _buildTimeInfo(
-                    'End Date',
-                    project['end_date'] != null
-                        ? _formatDate(project['end_date'])
-                        : '-',
-                    Icons.event,
-                    Colors.orange,
-                  ),
-                ),
-                Container(width: 1, height: 40, color: Colors.grey.shade200),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Icon(Icons.people, size: 18, color: Colors.purple),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Members',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${(project['members'] as List<dynamic>?)?.length ?? 0}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.purple,
-                        ),
-                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
